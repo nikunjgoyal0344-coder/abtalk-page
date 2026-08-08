@@ -29,6 +29,45 @@
   --font-display: 'Space Grotesk', sans-serif;
 }
 
+
+/* Light Mode Theme Overrides */
+.light-mode {
+  --bg-main: #F7F5FC; /* Ultra-soft lavender/grey premium background */
+  --bg-main-rgb: 247, 245, 252;
+  --bg-card: rgba(255, 255, 255, 0.75); /* Highly readable white glassmorphic card */
+  --bg-card-hover: rgba(255, 255, 255, 0.92);
+  --bg-input: rgba(243, 239, 253, 0.8);
+  --border-color: rgba(124, 58, 237, 0.14); /* Soft purple border */
+  --border-color-active: rgba(124, 58, 237, 0.4);
+  
+  --text-primary: #1F1936; /* Premium dark violet text for reading comfort */
+  --text-secondary: #585078; /* Mid-dark slate purple */
+  --text-muted: #837B9B; /* Slate gray purple */
+  
+  --primary: #7C3AED; /* Medium dark violet for contrast */
+  --primary-glow: rgba(124, 58, 237, 0.08);
+  --secondary: #0891B2; /* Rich dark cyan */
+  --secondary-glow: rgba(8, 145, 178, 0.06);
+  --accent: #DB2777;
+  
+  --shadow-sm: 0 2px 8px rgba(31, 25, 54, 0.04);
+  --shadow-md: 0 8px 24px rgba(31, 25, 54, 0.06);
+  --shadow-lg: 0 16px 40px rgba(31, 25, 54, 0.1);
+  --glow-accent: 0 0 12px rgba(124, 58, 237, 0.06);
+}
+
+.light-mode .ambient-glow-1,
+.light-mode .ambient-glow-2,
+.light-mode .ambient-glow-3 {
+  opacity: 0.22;
+}
+
+.light-mode .badge {
+  background: rgba(124, 58, 237, 0.06);
+  border-color: rgba(124, 58, 237, 0.16);
+  color: var(--primary);
+}
+
 /* Base Styles */
 * {
   box-sizing: border-box;
