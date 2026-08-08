@@ -48,6 +48,17 @@ const LinkedinIcon = ({ size = 16, ...props }) => (
   </svg>
 );
 
+// Custom inline logo "AB" lettermark styled directly from user image attachment
+const ABLogo = ({ size = 28, ...props }) => (
+  <svg viewBox="10 16 66 60" width={size} height={size} fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+    <path 
+      d="M12 75 L38 18 H48 C62 18 72 23 72 32 C72 39 65 44 58 46 C67 48 74 53 74 62 C74 72 63 75 48 75 H12 Z M27 65 H46 C52 65 57 62 57 57 C57 52 52 49 46 49 H27 V65 Z M27 41 H44 C50 41 54 38 54 33 C54 28 50 26 44 26 H27 V41 Z" 
+      fill="currentColor" 
+      style={{ transform: 'skewX(-6deg)', transformOrigin: 'center' }} 
+    />
+  </svg>
+);
+
 // Quotes bank for Gen Z developers
 const MOTIVATIONAL_QUOTES = [
   {
@@ -65,10 +76,6 @@ const MOTIVATIONAL_QUOTES = [
   {
     text: "A 60-day challenge is a contract with your future self. 15 minutes of building after college is the ultimate compound interest.",
     author: "Streak Architects"
-  },
-  {
-    text: "They said programming is about genius. We say it's just committing and posting daily for 60 days. You got this, bestie.",
-    author: "Commit Club"
   }
 ];
 
@@ -109,33 +116,42 @@ const FAQS = [
     answer: "Every student gets a public ABTalks Profile showing their live GitHub commit calendar and LinkedIn logs. We share the top streak lists directly with hiring partners weekly."
   },
   {
-    question: "What if I break my streak?",
-    answer: "Life happens! You get 3 'Vibe Pass' streak freezes to use during exams or emergencies. Just activate it in your dashboard to save your streak."
+    question: "What is a Vibe Pass / Streak Freeze?",
+    answer: "Life happens! You get 3 'Vibe Pass' streak freezes to use during exams or emergencies. Just activate it in your dashboard to save your streak from resetting."
   },
   {
     question: "Do I get a certificate and rewards?",
-    answer: "Yes! Completing the 60 days unlocks a Verified Proof-of-Work Certificate. In addition, reaching milestones (7d, 30d, 60d) unlocks developer badges, code reviews, and physical merch."
+    answer: "Yes! Completing the 60 days unlocks a Verified Proof-of-Work Certificate. In addition, reaching milestones unlocks developer badges, code reviews, and physical merch."
   }
 ];
 
-// Daily Coding Prompts based on selected Track
-const SIMULATOR_PROMPTS = {
-  frontend: {
-    prompt: "Build a glassmorphic night-mode code editor interface optimized for 390px screens.",
-    checklist: ["Clean CSS variables structure", "Smooth dark-toggle click transition", "Perfect mobile wrap layouts"]
-  },
-  backend: {
-    prompt: "Write an Express.js API middleware to throttle spam submissions to the leaderboard.",
-    checklist: ["Implements memory cache storage", "Sends correct 429 Too Many Requests status", "Includes clean error responses"]
-  },
-  ai: {
-    prompt: "Write a Python script using LLM APIs to automatically generate git commits from your diffs.",
-    checklist: ["Parses git diff outputs cleanly", "Generates concise semantic messages", "Handles error fallback modes"]
-  }
-};
-
 export default function App() {
   const [theme, setTheme] = useState('dark');
+  const [studentCount, setStudentCount] = useState(15248);
+  const [recentNotification, setRecentNotification] = useState(null);
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  const [isQuoteAnimating, setIsQuoteAnimating] = useState(false);
+  const [particles, setParticles] = useState([]);
+  const [testimonialIdx, setTestimonialIdx] = useState(0);
+  const [openFaq, setOpenFaq] = useState({});
+
+  // WhatsApp nudge state
+  const [nudgeEnabled, setNudgeEnabled] = useState(false);
+  const [showNudgePreview, setShowNudgePreview] = useState(false);
+
+  // Streak freeze simulation
+  const [vibePasses, setVibePasses] = useState(2);
+  const [missedStreakRestored, setMissedStreakRestored] = useState(false);
+
+  // Sync state variables
+  const [gitSynced, setGitSynced] = useState(false);
+  const [linkedinSynced, setLinkedinSynced] = useState(false);
+
+  // Auth Modal states
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState('signin'); // 'signin' or 'signup'
+  const [userSession, setUserSession] = useState(null); 
+  const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
     if (theme === 'light') {
@@ -145,44 +161,8 @@ export default function App() {
     }
   }, [theme]);
 
-  const [studentCount, setStudentCount] = useState(15248);
-  const [recentNotification, setRecentNotification] = useState(null);
-  const [quoteIndex, setQuoteIndex] = useState(0);
-  const [isQuoteAnimating, setIsQuoteAnimating] = useState(false);
-  const [particles, setParticles] = useState([]);
-  const [testimonialIdx, setTestimonialIdx] = useState(0);
-  const [openFaq, setOpenFaq] = useState({});
-
-  // Auth Gate states
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [isDashLoggedIn, setIsDashLoggedIn] = useState(false);
-  const [isDashLoggingIn, setIsDashLoggingIn] = useState(false);
-
-  // Simulator states
-  const [simTrack, setSimTrack] = useState('frontend');
-  const [simState, setSimState] = useState('idle'); // idle -> submitting -> verified
-  const [simProgress, setSimProgress] = useState(0);
-  const [gitChecked, setGitChecked] = useState(false);
-  const [linkedinChecked, setLinkedinChecked] = useState(false);
-
-  // Milestone rewards state
-  const [activeMilestone, setActiveMilestone] = useState(7);
-
-  // Sandbox Edge-Case states
-  const [activeEdgeCase, setActiveEdgeCase] = useState('active'); // active -> empty -> fresh -> missed
-  const [vibePasses, setVibePasses] = useState(2);
-  const [missedStreakRestored, setMissedStreakRestored] = useState(false);
-  const [gitSynced, setGitSynced] = useState(false);
-  const [linkedinSynced, setLinkedinSynced] = useState(false);
-
-  // Thoughtful feature state: WhatsApp nudge
-  const [nudgeEnabled, setNudgeEnabled] = useState(false);
-  const [showNudgePreview, setShowNudgePreview] = useState(false);
-
-  // IntersectionObserver for scroll-reveal animations
+  // Scroll to top and observer initialization
   useEffect(() => {
-    // Force scroll to top on load/refresh
     window.scrollTo(0, 0);
 
     const observer = new IntersectionObserver((entries) => {
@@ -190,7 +170,6 @@ export default function App() {
         if (entry.isIntersecting) {
           entry.target.classList.add('visible');
         } else {
-          // Remove class when exiting viewport to make animations repeat on reverse scrolling
           entry.target.classList.remove('visible');
         }
       });
@@ -202,7 +181,7 @@ export default function App() {
     return () => observer.disconnect();
   }, []);
 
-  // Simulating live signup increments & alerts
+  // Live count simulation
   useEffect(() => {
     const interval = setInterval(() => {
       const increment = Math.floor(Math.random() * 2) + 1;
@@ -225,7 +204,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Custom particle effect on buttons (Confetti)
+  // Confetti particles function
   const triggerParticles = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -247,54 +226,20 @@ export default function App() {
     }, 1200);
   };
 
-  // Simulated Login Handlers
-  const handleGitHubLogin = (e) => {
+  const toggleWhatsAppNudge = (e) => {
     triggerParticles(e);
-    setIsLoggingIn(true);
-    setTimeout(() => {
-      setIsLoggedIn(true);
-      setIsLoggingIn(false);
-    }, 1200);
-  };
-
-  const handleDashLogin = (e) => {
-    triggerParticles(e);
-    setIsDashLoggingIn(true);
-    setTimeout(() => {
-      setIsDashLoggedIn(true);
-      setIsDashLoggingIn(false);
-    }, 1200);
-  };
-
-  // Run Submission Simulator
-  const startSimulatorSubmission = (e) => {
-    if (!gitChecked || !linkedinChecked) {
-      alert("⚠️ You must check off both GitHub Commit and LinkedIn Post to submit your daily proof-of-work!");
-      return;
+    const newVal = !nudgeEnabled;
+    setNudgeEnabled(newVal);
+    if (newVal) {
+      setShowNudgePreview(true);
+      setTimeout(() => {
+        setShowNudgePreview(false);
+      }, 6000);
+    } else {
+      setShowNudgePreview(false);
     }
-    triggerParticles(e);
-    setSimState('submitting');
-    setSimProgress(0);
-
-    let progress = 0;
-    const timer = setInterval(() => {
-      progress += 10;
-      setSimProgress(progress);
-      if (progress >= 100) {
-        clearInterval(timer);
-        setSimState('verified');
-      }
-    }, 120);
   };
 
-  const resetSimulator = () => {
-    setSimState('idle');
-    setSimProgress(0);
-    setGitChecked(false);
-    setLinkedinChecked(false);
-  };
-
-  // Restore Missed Streak with Vibe Pass
   const useVibePass = (e) => {
     triggerParticles(e);
     if (vibePasses > 0) {
@@ -303,23 +248,6 @@ export default function App() {
     }
   };
 
-  // Enable WhatsApp reminder Nudge
-  const toggleWhatsAppNudge = (e) => {
-    triggerParticles(e);
-    const newVal = !nudgeEnabled;
-    setNudgeEnabled(newVal);
-    if (newVal) {
-      setShowNudgePreview(true);
-      // Auto-hide preview after 6 seconds
-      setTimeout(() => {
-        setShowNudgePreview(false);
-      }, 7000);
-    } else {
-      setShowNudgePreview(false);
-    }
-  };
-
-  // Animate custom quote engine change
   const rollNewQuote = (e) => {
     triggerParticles(e);
     setIsQuoteAnimating(true);
@@ -330,10 +258,7 @@ export default function App() {
   };
 
   const handleFaqToggle = (index) => {
-    setOpenFaq(prev => ({
-      ...prev,
-      [index]: !prev[index]
-    }));
+    setOpenFaq(prev => ({ ...prev, [index]: !prev[index] }));
   };
 
   const nextTestimonial = () => {
@@ -344,60 +269,71 @@ export default function App() {
     setTestimonialIdx(prev => (prev - 1 + TESTIMONIALS.length) % TESTIMONIALS.length);
   };
 
+  const handleAuthSubmit = (e, email, name) => {
+    e.preventDefault();
+    triggerParticles(e);
+    setAuthLoading(true);
+    setTimeout(() => {
+      setUserSession({
+        name: name || 'Rohan Sharma',
+        email: email || 'rohan@vit.edu'
+      });
+      setAuthLoading(false);
+      setShowAuthModal(false);
+    }, 1200);
+  };
+
+  const handleSignOut = (e) => {
+    triggerParticles(e);
+    setUserSession(null);
+  };
+
   return (
     <div className="app-container">
       {/* Ambient background glowing blobs */}
       <div className="ambient-glow-1"></div>
       <div className="ambient-glow-2"></div>
 
-      {/* HEADER SECTION */}
+      {/* RASPBERRY PI STYLE HEADER */}
       <header style={{
         position: 'sticky',
         top: 0,
         zIndex: 50,
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid var(--border-color)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderBottom: '1.5px solid var(--border-color)',
         padding: '12px 0',
-        background: 'rgba(var(--bg-main-rgb), 0.75)'
+        background: 'rgba(var(--bg-main-rgb), 0.8)'
       }}>
         <div className="container" style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          {/* Logo */}
+          {/* Logo with slanted hashtag logo */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            fontFamily: 'var(--font-display)',
-            fontWeight: 700,
-            fontSize: '1.25rem',
-            color: 'var(--text-primary)'
+            fontFamily: 'var(--font-sans)',
+            fontWeight: 800,
+            fontSize: '1.35rem',
+            fontStyle: 'italic',
+            letterSpacing: '-0.03em',
+            cursor: 'default',
+            userSelect: 'none'
           }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#FFFFFF',
-              fontWeight: 800,
-              fontSize: '1.1rem'
-            }}>AB</div>
-            <span>ABTalks</span>
+            <span style={{ color: '#BE123C', marginRight: '1px' }}>#</span>
+            <span style={{ color: 'var(--text-primary)' }}>ABtalks</span>
+            <span style={{ fontSize: '0.6rem', alignSelf: 'flex-start', marginLeft: '2px', color: 'var(--text-muted)' }}>®</span>
           </div>
 
-          {/* Right controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Right controls - Switch options & Auth */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button 
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               style={{
                 background: 'var(--bg-input)',
-                border: '1px solid var(--border-color)',
+                border: '1.5px solid var(--border-color)',
                 borderRadius: '8px',
                 width: '36px',
                 height: '36px',
@@ -413,969 +349,616 @@ export default function App() {
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            <a href="#challenge-form" className="btn-primary" style={{
-              padding: '10px 16px',
-              fontSize: '0.85rem',
-              borderRadius: '8px',
-              boxShadow: 'none'
-            }}>
-              Start Streak
-            </a>
+            {userSession ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '50%',
+                  background: 'var(--primary-glow)',
+                  border: '1.5px solid var(--primary)',
+                  color: 'var(--primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer'
+                }} title={userSession.email}>
+                  {userSession.name.split(' ').map(n => n[0]).join('')}
+                </div>
+                <button 
+                  onClick={handleSignOut}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    textDecoration: 'underline',
+                    padding: '4px'
+                  }}
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    setAuthModalTab('signin');
+                    setShowAuthModal(true);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    padding: '8px 12px',
+                    transition: 'opacity 0.2s'
+                  }}
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => {
+                    setAuthModalTab('signup');
+                    setShowAuthModal(true);
+                  }}
+                  className="btn-primary"
+                  style={{
+                    padding: '8px 14px',
+                    fontSize: '0.82rem',
+                    borderRadius: '8px'
+                  }}
+                >
+                  Sign Up
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
 
-      {/* HERO SECTION */}
-      <section style={{ padding: '36px 0 20px 0', position: 'relative' }}>
+      {/* RASPBERRY PI STYLE HERO (SPLIT GRID) */}
+      <section style={{ padding: '40px 0 24px 0', position: 'relative' }}>
         <div className="container">
-          <div style={{ textAlign: 'center' }}>
-            <span className="badge animate-fade-in-up delay-100">
-              <Flame size={12} className="animate-float" />
-              60-Day coding streak challenge
-            </span>
+          <div className="rpi-grid">
             
-            <h1 className="animate-fade-in-up delay-200" style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '2.25rem',
-              fontWeight: 700,
-              lineHeight: '1.15',
-              letterSpacing: '-0.02em',
-              marginBottom: '16px',
-              background: 'linear-gradient(135deg, var(--text-primary) 30%, var(--primary) 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}>
-              60 Days. 60 Builds. Recruiter Eyes.
-            </h1>
-            
-            <p className="section-subtitle animate-fade-in-up delay-300" style={{ fontSize: '0.95rem', marginBottom: '24px' }}>
-              Build consistency daily after college. Maintain your public streak with a **GitHub commit** and a **LinkedIn post** before midnight. Ditch tutorial hell.
-            </p>
-
-            {/* Main Interactive CTA Button */}
-            <div className="animate-fade-in-up delay-400" style={{ position: 'relative', display: 'inline-block', marginBottom: '32px' }}>
-              <a 
-                href="#challenge-form" 
-                className="btn-primary"
-                onClick={triggerParticles}
-                style={{ width: '100%', maxWidth: '300px' }}
-              >
-                Accept 60-Day Challenge
-                <ArrowRight size={18} />
-              </a>
-              {/* Confetti particles element */}
-              {particles.map(p => (
-                <div 
-                  key={p.id}
-                  className="confetti-particle"
-                  style={{
-                    backgroundColor: p.color,
-                    left: `${p.x}px`,
-                    top: `${p.y}px`,
-                    transform: `translate(${p.vx * 10}px, ${p.vy * 10}px)`
-                  }}
-                />
-              ))}
-            </div>
-
-            {/* Live Student Counter Banner */}
-            <div className="glass-card animate-fade-in-up delay-500 pulse-glow-active" style={{
-              padding: '16px',
-              borderRadius: '16px',
-              borderLeft: '4px solid var(--primary)',
-              textAlign: 'left',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              position: 'relative',
-              overflow: 'hidden'
-            }}>
-              <div>
-                <span style={{
-                  fontSize: '0.75rem',
-                  textTransform: 'uppercase',
-                  fontWeight: 700,
-                  letterSpacing: '0.05em',
-                  color: 'var(--primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  <span style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: 'var(--primary)',
-                    display: 'inline-block',
-                    boxShadow: '0 0 8px var(--primary-glow)'
-                  }} />
-                  Active Indian Student Streaks
-                </span>
-                
-                <h3 style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '1.65rem',
-                  fontWeight: 700,
-                  color: 'var(--text-primary)',
-                  margin: '4px 0'
-                }}>
-                  {studentCount.toLocaleString()}+
-                </h3>
-                
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  Students committing and shipping code tonight.
-                </p>
-              </div>
-              <div style={{
-                background: 'var(--primary-glow)',
-                padding: '12px',
-                borderRadius: '12px',
-                color: 'var(--primary)'
-              }}>
-                <Users size={28} />
-              </div>
-            </div>
-
-            {/* Live Popups Notification Toast */}
-            <div style={{
-              height: '40px',
-              marginTop: '12px',
-              position: 'relative'
-            }}>
-              {recentNotification && (
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background: 'var(--border-color)',
-                  border: '1px solid var(--border-color-active)',
-                  borderRadius: '12px',
-                  padding: '8px 16px',
-                  fontSize: '0.75rem',
-                  color: 'var(--primary)',
-                  animation: 'float 0.3s ease-out forwards',
-                  boxShadow: 'var(--shadow-sm)'
-                }}>
-                  <Sparkles size={12} />
-                  <span><strong>{recentNotification.name}</strong> from <strong>{recentNotification.city}</strong> {recentNotification.action}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* HOW IT WORKS SECTION (Simple 3-step loop for new students) */}
-      <section style={{ padding: '20px 0', borderTop: '1px solid rgba(255,255,255,0.02)' }}>
-        <div className="container">
-          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <span className="badge badge-cyan">New to ABTalks?</span>
-            <h2 className="section-title">How the Challenge Works</h2>
-            <p className="section-subtitle">
-              A simple daily feedback loop that transforms your engineering profile.
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Step 1 */}
-            <div className="glass-card reveal reveal-up" style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', padding: '16px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'rgba(139, 92, 246, 0.1)',
-                color: 'var(--primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-                flexShrink: 0
-              }}>1</div>
-              <div>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>Choose Your Track</h4>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-                  Select Frontend (React/CSS), Backend (Node/API), or AI engineering tracks based on your tech stack interest.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="glass-card reveal reveal-up delay-100" style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', padding: '16px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'rgba(6, 182, 212, 0.1)',
-                color: 'var(--secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-                flexShrink: 0
-              }}>2</div>
-              <div>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>Commit & Share Daily</h4>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-                  Write code and push a GitHub commit before midnight daily. Then, share a short learning post on LinkedIn to verify your proof of work.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="glass-card reveal reveal-up delay-200" style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', padding: '16px' }}>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'rgba(236, 72, 153, 0.1)',
-                color: 'var(--accent)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-                flexShrink: 0
-              }}>3</div>
-              <div>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>Get Verified & Hired</h4>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-                  Maintain a streak for 60 consecutive days to unlock a certified badge and enter the Recruiter Leaderboard accessed by 80+ top startups.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* THOUGHTFUL STUDENT EXPERIENCE FEATURE: WHATSAPP REMINDER */}
-      <section style={{ padding: '20px 0', position: 'relative' }}>
-        <div className="container">
-          <div className="glass-card reveal reveal-up" style={{
-            padding: '20px',
-            border: '1.5px dashed var(--border-color)',
-            background: 'rgba(11, 8, 19, 0.4)',
-            borderRadius: '20px',
-            position: 'relative'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-              <Bell size={18} style={{ color: 'var(--primary)' }} />
-              <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Thoughtful Student Feature
+            {/* Left Content (col-7) */}
+            <div className="col-7 reveal reveal-up" style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <span className="badge">
+                <Flame size={12} className="animate-float" style={{ color: 'var(--primary)' }} />
+                60-Day coding streak challenge
               </span>
+
+              <h1 style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: '2.5rem',
+                fontWeight: 700,
+                lineHeight: '1.1',
+                letterSpacing: '-0.02em',
+                marginBottom: '16px',
+                background: 'linear-gradient(135deg, var(--text-primary) 50%, var(--primary) 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>
+                60 Days. 60 Builds.<br />Recruiter Eyes.
+              </h1>
+
+              <p style={{ 
+                fontSize: '0.92rem', 
+                color: 'var(--text-secondary)', 
+                lineHeight: '1.45', 
+                marginBottom: '24px',
+                maxWidth: '520px'
+              }}>
+                ABTalks runs a 60-day challenge for Indian college students. Pick a track, build something every day, and maintain your public learning streak with a GitHub commit and LinkedIn post before midnight.
+              </p>
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <a href="#challenge-form" className="btn-primary" onClick={triggerParticles} style={{ position: 'relative' }}>
+                  Accept Challenge
+                  <ArrowRight size={16} />
+                  
+                  {particles.map(p => (
+                    <div 
+                      key={p.id}
+                      className="confetti-particle"
+                      style={{
+                        backgroundColor: p.color,
+                        left: `${p.x}px`,
+                        top: `${p.y}px`,
+                        transform: `translate(${p.vx * 10}px, ${p.vy * 10}px)`
+                      }}
+                    />
+                  ))}
+                </a>
+                <a href="#tracks-section" className="btn-secondary">
+                  Explore Milestones
+                </a>
+              </div>
             </div>
 
-            <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '1.05rem', fontWeight: 700, marginBottom: '6px' }}>
-              Late-Night WhatsApp Nudge
-            </h4>
-            
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.4', marginBottom: '14px' }}>
-              Coding after college is tiring. Enable our streak checker to ping your WhatsApp at 10:00 PM if your GitHub commit hasn't been logged yet.
-            </p>
-
-            <button
-              onClick={toggleWhatsAppNudge}
-              className="btn-secondary"
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                fontSize: '0.8rem',
-                gap: '8px',
-                borderColor: nudgeEnabled ? 'var(--primary)' : 'var(--border-color)',
-                background: nudgeEnabled ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
-                color: nudgeEnabled ? 'var(--primary)' : 'var(--text-primary)',
-                transition: 'all 0.3s ease'
-              }}
-            >
-              <MessageSquare size={14} />
-              {nudgeEnabled ? "✓WhatsApp Reminder Active" : "Simulate WhatsApp 10PM Reminder"}
-            </button>
-
-            {/* WhatsApp floating message mockup */}
-            {showNudgePreview && (
-              <div style={{
-                position: 'fixed',
-                bottom: '100px',
-                left: '20px',
-                right: '20px',
-                zIndex: 200,
-                background: '#0B141A', /* WhatsApp Dark Mode Background */
-                borderLeft: '4px solid #00A884', /* WhatsApp green */
-                borderRadius: '12px',
-                padding: '12px 14px',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.8)',
-                animation: 'fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-                textAlign: 'left'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#00A884', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Smartphone size={10} />
-                    ABTalks Streak Bot
+            {/* Right Interactive Card (col-5) */}
+            <div className="col-5 reveal reveal-up delay-100" style={{ display: 'flex', alignItems: 'center' }}>
+              <div className="glass-card" style={{ width: '100%', padding: '20px', border: '1.5px solid var(--border-color)' }}>
+                
+                {/* Simulated profile mockup */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      background: 'var(--primary-glow)',
+                      border: '1.5px solid var(--primary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      color: 'var(--primary)'
+                    }}>I</div>
+                    <div>
+                      <h4 style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>ideal_student</h4>
+                      <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>AI & Software Track</p>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Flame size={12} className="animate-float" />
+                    🔥 18 Days
                   </span>
-                  <span style={{ fontSize: '0.65rem', color: '#8696A0' }}>10:00 PM</span>
                 </div>
-                <p style={{ fontSize: '0.78rem', color: '#E9EDEF', lineHeight: '1.35' }}>
-                  Hey dev! 🚨 <strong>2 hours left</strong> to save your 18-day code streak. Your track today requires a commit on: <em>"Build glassmorphic editor"</em>. Don't break the streak! 💻🔥
-                </p>
+
+                <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '10px', marginBottom: '14px', border: '1px solid rgba(255,255,255,0.02)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    <span>Milestone 2/3: Day 30 Review</span>
+                    <span>12 days left</span>
+                  </div>
+                  <div style={{ width: '100%', height: '5px', background: 'var(--bg-main)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: '60%', height: '100%', background: 'var(--primary)' }}></div>
+                  </div>
+                </div>
+
+                {/* Submissions checklist */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.75rem', textAlign: 'left' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10B981' }}>
+                    <CheckCircle2 size={14} />
+                    <span>GitHub code commit synced</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10B981' }}>
+                    <CheckCircle2 size={14} />
+                    <span>LinkedIn post verified</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', border: '1.5px solid var(--text-muted)' }} />
+                    <span>Next task unlocks tomorrow at 8:00 AM</span>
+                  </div>
+                </div>
+
               </div>
-            )}
+            </div>
+
           </div>
         </div>
       </section>
 
-
-
-      {/* OUTCOMES (YOUR CODING GLOW-UP) */}
-      <section style={{ padding: '30px 0', overflow: 'hidden' }}>
+      {/* CORE TRACKS & ACHIEVEMENTS SECTION (3-COLUMN RASPBERRY PI GRID) */}
+      <section id="tracks-section" style={{ padding: '36px 0', borderTop: '1.5px solid var(--border-color)' }}>
         <div className="container">
-          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <span className="badge badge-cyan">The Outcomes</span>
-            <h2 className="section-title">Your Coding Glow-up</h2>
-            <p className="section-subtitle">
-              Here is exactly what you learn, what you build, and how recruiters see you.
+          
+          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <span className="badge badge-cyan">Tracks & Achievements</span>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.85rem', fontWeight: 700, marginBottom: '8px' }}>
+              Core Tracks & Achievements
+            </h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '580px', margin: '0 auto' }}>
+              Unlock specific community recognition and achievements through three core milestones:
             </p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Card 1: What you master */}
-            <div className="glass-card reveal reveal-up" style={{ 
-              padding: '20px', 
-              borderLeft: '4px solid var(--primary)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  background: 'rgba(139, 92, 246, 0.1)',
-                  color: 'var(--primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Target size={18} />
-                </div>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', fontWeight: 700 }}>
-                  What You Master
-                </h3>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="rpi-grid">
+            
+            {/* Track 1: 60-Day Challenge */}
+            <div className="col-4 reveal reveal-up">
+              <div className="rpi-card">
                 <div>
-                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>⚡ Habit-Loop Consistency</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: '1.35' }}>
-                    Escape tutorial hell. Write, debug, and commit clean code every single night after college lectures.
+                  <span className="rpi-card-tag">Coding Streak</span>
+                  <h3 className="rpi-card-title">60-Day Challenge</h3>
+                  <p className="rpi-card-body">
+                    Complete one daily task across AI, Software Engineering, or Data Science to build an unbroken streak and unlock the developer leaderboard.
                   </p>
                 </div>
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
-                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>📈 Portfolio Proof of Work</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: '1.35' }}>
-                    Walk away with 60 public GitHub repositories demonstrating your daily progression in real software builds.
-                  </p>
-                </div>
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
-                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>🗣_ Personal Dev Brand</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: '1.35' }}>
-                    Learn to communicate your engineering journey. Attract recruiter messages organically by sharing updates on LinkedIn.
-                  </p>
+                <div className="rpi-card-footer">
+                  <Target size={14} />
+                  <span>Unbroken Streak Milestone</span>
                 </div>
               </div>
             </div>
 
-            {/* Card 2: What you get */}
-            <div className="glass-card reveal reveal-up" style={{ 
-              padding: '20px', 
-              borderLeft: '4px solid var(--secondary)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  background: 'rgba(6, 182, 212, 0.1)',
-                  color: 'var(--secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <Zap size={18} />
-                </div>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.15rem', fontWeight: 700 }}>
-                  What You Get
-                </h3>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Track 2: 60-Day Claude Track */}
+            <div className="col-4 reveal reveal-up delay-100">
+              <div className="rpi-card">
                 <div>
-                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>🎓 Verified Streak Certificate</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: '1.35' }}>
-                    A unique, cryptographic proof-of-work credential showcasing your 60-day code commits, shareable on LinkedIn.
+                  <span className="rpi-card-tag">Agentic AI</span>
+                  <h3 className="rpi-card-title">60-Day Claude Track</h3>
+                  <p className="rpi-card-body">
+                    Master advanced prompt-engineering, build agentic workflows, and unlock the prestigious Campus Ambassador achievement tier.
                   </p>
                 </div>
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
-                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>🤝 Tech Leaderboard & Recruiter Access</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: '1.35' }}>
-                    Students with active 60-day streaks get featured on our Recruiter Dashboard, accessed directly by startup partners.
-                  </p>
-                </div>
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '10px' }}>
-                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>💬 Indian Developer Community</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: '1.35' }}>
-                    Access private Discord & WhatsApp study groups containing 10K+ Indian students reviewing and testing code together.
-                  </p>
+                <div className="rpi-card-footer">
+                  <Award size={14} />
+                  <span>Campus Ambassador Badge</span>
                 </div>
               </div>
             </div>
+
+            {/* Track 3: 31-Day AI Cohort */}
+            <div className="col-4 reveal reveal-up delay-200">
+              <div className="rpi-card">
+                <div>
+                  <span className="rpi-card-tag">RAG Deployments</span>
+                  <h3 className="rpi-card-title">31-Day AI Cohort</h3>
+                  <p className="rpi-card-body">
+                    Build and deploy a production-ready RAG AI chatbot to be showcased directly to tech recruiters and startup founders.
+                  </p>
+                </div>
+                <div className="rpi-card-footer">
+                  <Sparkles size={14} />
+                  <span>Showcase Direct Recruiter Link</span>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
 
-      {/* MILESTONE REWARDS TRACKER */}
-      <section style={{ padding: '30px 0', position: 'relative' }}>
+      {/* HOW IT WORKS & WHATSAPP REMINDER (SPLIT GRID) */}
+      <section style={{ padding: '36px 0', borderTop: '1.5px solid var(--border-color)', background: 'rgba(var(--bg-main-rgb), 0.2)' }}>
         <div className="container">
-          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <span className="badge">Gamified Milestones</span>
-            <h2 className="section-title">Milestone Rewards</h2>
-            <p className="section-subtitle" style={{ marginBottom: '20px' }}>
-              Coding daily unlocks special rewards. Click on a milestone to preview.
-            </p>
+          <div className="rpi-grid">
+            
+            {/* Left Card: 3-step loop (col-8) */}
+            <div className="col-8 reveal reveal-up">
+              <div className="glass-card" style={{ padding: '24px', border: '1.5px solid var(--border-color)', height: '100%', textAlign: 'left' }}>
+                <span className="badge">Onboarding Loop</span>
+                
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.45rem', fontWeight: 700, marginBottom: '16px' }}>
+                  How the Challenge Works
+                </h3>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      background: 'rgba(139, 92, 246, 0.1)',
+                      color: 'var(--primary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      flexShrink: 0
+                    }}>1</div>
+                    <div>
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>Choose Your Milestone Track</h4>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: '1.4' }}>
+                        Select the 60-Day Challenge, Claude Track, or 31-Day AI Cohort depending on your learning goals.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      background: 'rgba(6, 182, 212, 0.1)',
+                      color: 'var(--secondary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      flexShrink: 0
+                    }}>2</div>
+                    <div>
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>Commit and Post Daily</h4>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: '1.4' }}>
+                        Write code, push to GitHub, and share a summary post on LinkedIn before midnight to lock your daily verification.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      background: 'rgba(236, 72, 153, 0.1)',
+                      color: 'var(--accent)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      flexShrink: 0
+                    }}>3</div>
+                    <div>
+                      <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>Gain Verified Visibility</h4>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: '1.4' }}>
+                        Unlock certification credentials, exclusive badges, and profile visibility shown directly to hiring startup teams.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Right Card: WhatsApp Nudge & Vibe Pass Simulator (col-4) */}
+            <div className="col-4 reveal reveal-up delay-100">
+              <div className="rpi-card" style={{ background: 'rgba(22, 17, 38, 0.5)' }}>
+                <div>
+                  <span className="badge badge-cyan">Empathetic UX</span>
+                  <h3 className="rpi-card-title">Late-Night Nudge</h3>
+                  <p className="rpi-card-body" style={{ fontSize: '0.76rem', marginBottom: '14px' }}>
+                    Coding late after college is exhausting. Enable our streak checker to ping you at 10 PM if you forgot to commit today.
+                  </p>
+
+                  <button
+                    onClick={toggleWhatsAppNudge}
+                    className="btn-secondary"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: '0.78rem',
+                      justifyContent: 'center',
+                      borderColor: nudgeEnabled ? 'var(--primary)' : 'var(--border-color)',
+                      background: nudgeEnabled ? 'var(--primary-glow)' : 'transparent',
+                      color: nudgeEnabled ? 'var(--primary)' : 'var(--text-primary)',
+                      marginBottom: '16px'
+                    }}
+                  >
+                    <MessageSquare size={12} />
+                    {nudgeEnabled ? "Nudge Simulation Active" : "Simulate 10PM Alert"}
+                  </button>
+
+                  {/* Vibe Pass simulation block */}
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', textAlign: 'left' }}>
+                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                      Streak Reset Recovery:
+                    </span>
+                    {missedStreakRestored ? (
+                      <div style={{ color: '#10B981', fontSize: '0.75rem', fontWeight: 600 }}>
+                        ✓ Day 18 Streak Restored!
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.72rem', color: '#EF4444' }}>⚠️ Missed Day Reset</span>
+                        <button 
+                          onClick={useVibePass}
+                          className="btn-primary"
+                          style={{ padding: '6px 10px', fontSize: '0.68rem', background: 'linear-gradient(135deg, var(--accent) 0%, #F43F5E 100%)', boxShadow: 'none' }}
+                        >
+                          Use Vibe Pass ({vibePasses})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* WhatsApp preview popup */}
+                {showNudgePreview && (
+                  <div style={{
+                    position: 'fixed',
+                    bottom: '24px',
+                    left: '20px',
+                    right: '20px',
+                    zIndex: 200,
+                    background: '#0B141A',
+                    borderLeft: '4px solid #00A884',
+                    borderRadius: '10px',
+                    padding: '10px 12px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                    animation: 'fadeInUp 0.3s ease forwards',
+                    textAlign: 'left'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '0.68rem', color: '#00A884', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Smartphone size={10} />
+                        ABTalks Streak Bot
+                      </span>
+                      <span style={{ fontSize: '0.6rem', color: '#8696A0' }}>10:00 PM</span>
+                    </div>
+                    <p style={{ fontSize: '0.74rem', color: '#E9EDEF', lineHeight: '1.3' }}>
+                      Hey dev! 🚨 <strong>2 hours left</strong> to save your 18-day streak. Don't break the streak tonight! 💻🔥
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
+        </div>
+      </section>
 
-          <div className="glass-card reveal reveal-up delay-100" style={{ padding: '24px 20px', textAlign: 'center' }}>
-            {/* Milestone slider links */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              position: 'relative',
-              marginBottom: '28px',
-              padding: '0 20px'
-            }}>
-              {/* Progress Line */}
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '20px',
-                right: '20px',
-                height: '2px',
-                background: 'var(--border-color)',
-                zIndex: 0,
-                transform: 'translateY(-50%)'
-              }} />
-              
-              {/* Active Milestone Progress Line */}
-              <div style={{
-                position: 'absolute',
-                top: '50%',
-                left: '20px',
-                width: activeMilestone === 7 ? '0%' : activeMilestone === 30 ? '50%' : '100%',
-                height: '2px',
-                background: 'var(--primary)',
-                zIndex: 0,
-                transform: 'translateY(-50%)',
-                transition: 'width 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
-              }} />
+      {/* OUTCOMES & RECRUITER LEADERBOARDS */}
+      <section style={{ padding: '36px 0', borderTop: '1.5px solid var(--border-color)' }}>
+        <div className="container">
+          <div className="rpi-grid">
+            
+            {/* Live notification commits and stats (col-8) */}
+            <div className="col-8 reveal reveal-up" style={{ textAlign: 'left' }}>
+              <span className="badge badge-cyan">Live statistics</span>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.45rem', fontWeight: 700, marginBottom: '8px' }}>
+                Your Coding Glow-up
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '18px', maxWidth: '600px' }}>
+                Join thousands of Indian college students building proof of work daily. Secure consistency logs to stay on recruiters' radars.
+              </p>
 
-              {[7, 30, 60].map((day) => (
-                <button
-                  key={day}
-                  onClick={() => setActiveMilestone(day)}
-                  style={{
-                    position: 'relative',
-                    zIndex: 1,
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    background: activeMilestone === day ? 'var(--primary)' : 'var(--bg-input)',
-                    color: activeMilestone === day ? '#FFFFFF' : 'var(--text-secondary)',
-                    border: activeMilestone === day ? '2px solid var(--primary)' : '2px solid var(--border-color)',
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
+              {/* Stats card block */}
+              <div className="glass-card" style={{ padding: '16px', background: 'var(--primary-glow)', border: '1.5px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <h4 style={{ fontSize: '1.85rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+                    {studentCount.toLocaleString()}+
+                  </h4>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Active Indian college student commits logged tonight.</p>
+                </div>
+                <div style={{ background: 'rgba(139, 92, 246, 0.2)', padding: '10px', borderRadius: '8px', color: 'var(--primary)' }}>
+                  <Users size={24} />
+                </div>
+              </div>
+
+              {/* Toast notifier simulator */}
+              <div style={{ height: '36px', overflow: 'hidden', position: 'relative' }}>
+                {recentNotification && (
+                  <div style={{
+                    display: 'inline-flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-                    fontFamily: 'var(--font-display)'
-                  }}
-                >
-                  {day}d
-                </button>
-              ))}
-            </div>
-
-            {/* Display active reward card */}
-            <div style={{
-              background: 'var(--bg-input)',
-              padding: '20px',
-              borderRadius: '16px',
-              border: '1px solid rgba(255,255,255,0.02)',
-              textAlign: 'left',
-              minHeight: '120px',
-              transition: 'all 0.3s ease'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <Gift size={16} style={{ color: 'var(--primary)' }} />
-                <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Unlocked at Day {activeMilestone}
-                </span>
+                    gap: '6px',
+                    background: 'var(--bg-card)',
+                    border: '1.5px solid var(--border-color)',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.72rem',
+                    color: 'var(--primary)',
+                    animation: 'fadeInUp 0.3s ease forwards'
+                  }}>
+                    <Sparkles size={12} />
+                    <span><strong>{recentNotification.name}</strong> ({recentNotification.city}) {recentNotification.action}</span>
+                  </div>
+                )}
               </div>
-
-              {activeMilestone === 7 && (
-                <div style={{ animation: 'fadeInUp 0.4s ease forwards' }}>
-                  <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>🔥 Git Committer Badge</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-                    Unlocks custom dev flair on the public leaderboards and showcases your initial streak consistency on your developer profile card.
-                  </p>
-                </div>
-              )}
-
-              {activeMilestone === 30 && (
-                <div style={{ animation: 'fadeInUp 0.4s ease forwards' }}>
-                  <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>💻 Portfolio Code Review</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-                    Get your repositories reviewed 1-on-1 by a senior software engineer from top tech firms, highlighting optimizations and architecture tips.
-                  </p>
-                </div>
-              )}
-
-              {activeMilestone === 60 && (
-                <div style={{ animation: 'fadeInUp 0.4s ease forwards' }}>
-                  <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>⚡ ABTalks Champion Hoodie</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>
-                    The ultimate physical flex. Heavyweight developer streetwear shipped directly to your hostel/dorm upon completing the 60-day challenge.
-                  </p>
-                </div>
-              )}
             </div>
+
+            {/* Hiring Partners (col-4) */}
+            <div className="col-4 reveal reveal-up delay-100" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div className="rpi-card" style={{ justifyContent: 'center', background: 'rgba(22, 17, 38, 0.3)' }}>
+                <span className="rpi-card-tag">Recruiter Network</span>
+                <h3 className="rpi-card-title">Hiring Partners</h3>
+                <p className="rpi-card-body" style={{ fontSize: '0.76rem' }}>
+                  Top product companies and fast-growing Indian startups recruit directly from our 60-day cohort leaderboard directories.
+                </p>
+                
+                {/* Simulated partner logos */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginTop: '10px', opacity: 0.65 }}>
+                  {['Razorpay', 'CRED', 'Meesho', 'Groww', 'Postpe', 'Zepto'].map((partner, i) => (
+                    <div key={i} style={{
+                      background: 'var(--bg-input)',
+                      border: '1.5px solid var(--border-color)',
+                      padding: '6px',
+                      borderRadius: '6px',
+                      fontSize: '0.62rem',
+                      fontWeight: 700,
+                      color: 'var(--text-secondary)',
+                      textAlign: 'center'
+                    }}>
+                      {partner}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
 
-      {/* STATS & SCORECARD */}
-      <section style={{ padding: '20px 0', overflow: 'hidden' }}>
+      {/* GEN Z MOTIVATIONAL INTERACTIVE SLIDER */}
+      <section style={{ padding: '36px 0', borderTop: '1.5px solid var(--border-color)', background: 'var(--bg-card)' }}>
         <div className="container">
-          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <span className="badge badge-cyan">Challenge Stats</span>
-            <h2 className="section-title">ABTalks by the Numbers</h2>
-            <p className="section-subtitle" style={{ marginBottom: '16px' }}>
-              Consistency builds credibility. Track the student community impact.
-            </p>
-          </div>
-
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: '12px'
-          }}>
-            {/* Card 1 */}
-            <div className="glass-card achievement-card reveal reveal-up">
-              <div className="achievement-icon-wrapper">
-                <Flame size={20} />
-              </div>
-              <span style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.35rem',
-                fontWeight: 700,
-                color: 'var(--text-primary)'
-              }}>1.2M+</span>
-              <span style={{
-                fontSize: '0.72rem',
-                color: 'var(--text-secondary)',
-                marginTop: '4px'
-              }}>GitHub Commits</span>
-            </div>
-
-            {/* Card 2 */}
-            <div className="glass-card achievement-card reveal reveal-up">
-              <div className="achievement-icon-wrapper" style={{
-                background: 'rgba(6, 182, 212, 0.1)',
-                color: 'var(--secondary)',
-                border: '1px solid rgba(6, 182, 212, 0.2)'
-              }}>
-                <Award size={20} />
-              </div>
-              <span style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.35rem',
-                fontWeight: 700,
-                color: 'var(--text-primary)'
-              }}>80+</span>
-              <span style={{
-                fontSize: '0.72rem',
-                color: 'var(--text-secondary)',
-                marginTop: '4px'
-              }}>Hiring Companies</span>
-            </div>
-
-            {/* Card 3 */}
-            <div className="glass-card achievement-card reveal reveal-up delay-100">
-              <div className="achievement-icon-wrapper" style={{
-                background: 'rgba(236, 72, 153, 0.1)',
-                color: 'var(--accent)',
-                border: '1px solid rgba(236, 72, 153, 0.2)'
-              }}>
-                <Compass size={20} />
-              </div>
-              <span style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.35rem',
-                fontWeight: 700,
-                color: 'var(--text-primary)'
-              }}>420K+</span>
-              <span style={{
-                fontSize: '0.72rem',
-                color: 'var(--text-secondary)',
-                marginTop: '4px'
-              }}>Projects Shipped</span>
-            </div>
-
-            {/* Card 4 */}
-            <div className="glass-card achievement-card reveal reveal-up delay-100">
-              <div className="achievement-icon-wrapper" style={{
-                background: 'rgba(16, 185, 129, 0.1)',
-                color: '#10B981',
-                border: '1px solid rgba(16, 185, 129, 0.2)'
-              }}>
-                <TrendingUp size={20} />
-              </div>
-              <span style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.35rem',
-                fontWeight: 700,
-                color: 'var(--text-primary)'
-              }}>88.5%</span>
-              <span style={{
-                fontSize: '0.72rem',
-                color: 'var(--text-secondary)',
-                marginTop: '4px'
-              }}>Streak Success Rate</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* DEV MOTIVATION ENGINE */}
-      <section style={{ padding: '20px 0' }}>
-        <div className="container">
-          <div className="glass-card quote-box reveal reveal-up" style={{
-            padding: '24px 20px',
-            border: '1px solid var(--border-color)',
-            borderRadius: '24px',
-            textAlign: 'center',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              position: 'absolute',
-              top: '12px',
-              left: '16px',
-              opacity: 0.1,
-              color: 'var(--primary)'
-            }}>
-              <Quote size={40} />
-            </div>
-
-            <span className="badge" style={{
-              fontSize: '0.7rem',
-              padding: '4px 10px',
-              marginBottom: '14px'
-            }}>
-              Dev Vibe Check
-            </span>
-
-            <div style={{
-              minHeight: '120px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              transition: 'opacity 0.3s ease',
+          <div className="reveal reveal-up" style={{ textAlign: 'center', maxWidth: '650px', margin: '0 auto' }}>
+            <Quote size={24} style={{ color: 'var(--primary)', opacity: 0.5, marginBottom: '12px' }} />
+            
+            <p style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '1.15rem',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+              lineHeight: '1.45',
+              marginBottom: '16px',
+              minHeight: '80px',
+              transition: 'all 0.3s ease',
               opacity: isQuoteAnimating ? 0 : 1
             }}>
-              <p style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: '1.05rem',
-                fontWeight: 500,
-                lineHeight: '1.5',
-                color: 'var(--text-primary)',
-                marginBottom: '16px',
-                fontStyle: 'italic'
-              }}>
-                "{MOTIVATIONAL_QUOTES[quoteIndex].text}"
-              </p>
-              
-              <span style={{
-                fontSize: '0.8rem',
-                color: 'var(--primary)',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em'
-              }}>
-                — {MOTIVATIONAL_QUOTES[quoteIndex].author}
-              </span>
-            </div>
+              "{MOTIVATIONAL_QUOTES[quoteIndex].text}"
+            </p>
 
-            {/* Interactive Vibe Roller Button */}
-            <div style={{ marginTop: '20px', position: 'relative' }}>
-              <button 
-                onClick={rollNewQuote} 
-                className="btn-secondary"
-                style={{
-                  fontSize: '0.85rem',
-                  padding: '10px 20px',
-                  borderRadius: '10px',
-                  gap: '6px',
-                  borderStyle: 'dashed',
-                  borderWidth: '1.5px',
-                  borderColor: 'var(--primary)',
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                <Sparkles size={14} className="animate-float" />
-                Roll New Quote
-              </button>
-              {/* Confetti particles element specifically for Quote Box */}
-              {particles.map(p => (
-                <div 
-                  key={p.id}
-                  className="confetti-particle"
-                  style={{
-                    backgroundColor: p.color,
-                    left: `${p.x}px`,
-                    top: `${p.y}px`,
-                    transform: `translate(${p.vx * 8}px, ${p.vy * 8}px)`
-                  }}
-                />
-              ))}
-            </div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 700, display: 'block', marginBottom: '14px' }}>
+              — {MOTIVATIONAL_QUOTES[quoteIndex].author}
+            </span>
+
+            <button 
+              onClick={rollNewQuote} 
+              className="btn-secondary" 
+              style={{ padding: '6px 14px', fontSize: '0.74rem', gap: '4px' }}
+            >
+              <RefreshCw size={12} />
+              Vibe Check Next Quote
+            </button>
           </div>
         </div>
       </section>
 
-      {/* ROADMAP TIMELINE */}
-      <section style={{ padding: '20px 0', overflow: 'hidden' }}>
+      {/* SOCIAL PROOF / SUCCESS STORIES */}
+      <section style={{ padding: '36px 0', borderTop: '1.5px solid var(--border-color)' }}>
         <div className="container">
           <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '28px' }}>
-            <span className="badge">The Route</span>
-            <h2 className="section-title">The 60-Day Journey</h2>
-            <p className="section-subtitle">
-              Three distinct phases to construct your engineering portfolio from scratch.
-            </p>
+            <span className="badge badge-cyan">Wall of Consistency</span>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.85rem', fontWeight: 700, marginBottom: '6px' }}>
+              Student Success Stories
+            </h2>
           </div>
 
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '24px',
-            position: 'relative',
-            paddingLeft: '16px',
-            borderLeft: '2px dashed var(--border-color)'
-          }}>
-            {/* Step 1 */}
-            <div style={{ position: 'relative' }}>
-              {/* Dot marker */}
-              <div style={{
-                position: 'absolute',
-                left: '-26px',
-                top: '4px',
-                width: '18px',
-                height: '18px',
-                borderRadius: '50%',
-                background: 'var(--primary)',
-                border: '4px solid var(--bg-main)',
-                boxShadow: '0 0 10px var(--primary-glow)'
-              }} />
-              
-              <div className="glass-card reveal reveal-up" style={{ padding: '18px' }}>
-                <span style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--primary)',
-                  fontWeight: 700,
-                  fontFamily: 'var(--font-display)'
-                }}>DAYS 1 - 20</span>
-                
-                <h4 style={{
-                  fontSize: '1.1rem',
-                  fontWeight: 700,
-                  margin: '4px 0 8px 0',
-                  color: 'var(--text-primary)'
-                }}>Syntax & Core Foundations</h4>
-                
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                  Master key syntax, DOM interactions, basic API consumption, and local file operations. Build daily utilities.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div style={{ position: 'relative' }}>
-              {/* Dot marker */}
-              <div style={{
-                position: 'absolute',
-                left: '-26px',
-                top: '4px',
-                width: '18px',
-                height: '18px',
-                borderRadius: '50%',
-                background: 'var(--secondary)',
-                border: '4px solid var(--bg-main)',
-                boxShadow: '0 0 10px var(--secondary-glow)'
-              }} />
-              
-              <div className="glass-card reveal reveal-up" style={{ padding: '18px' }}>
-                <span style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--secondary)',
-                  fontWeight: 700,
-                  fontFamily: 'var(--font-display)'
-                }}>DAYS 21 - 40</span>
-                
-                <h4 style={{
-                  fontSize: '1.1rem',
-                  fontWeight: 700,
-                  margin: '4px 0 8px 0',
-                  color: 'var(--text-primary)'
-                }}>Fullstack Integration</h4>
-                
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                  Connect client components to database tables, secure user auth schemas, and configure web socket triggers for live interactions.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div style={{ position: 'relative' }}>
-              {/* Dot marker */}
-              <div style={{
-                position: 'absolute',
-                left: '-26px',
-                top: '4px',
-                width: '18px',
-                height: '18px',
-                borderRadius: '50%',
-                background: 'var(--accent)',
-                border: '4px solid var(--bg-main)',
-                boxShadow: '0 0 10px rgba(244, 63, 94, 0.4)'
-              }} />
-              
-              <div className="glass-card reveal reveal-up" style={{ padding: '18px' }}>
-                <span style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--accent)',
-                  fontWeight: 700,
-                  fontFamily: 'var(--font-display)'
-                }}>DAYS 41 - 60</span>
-                
-                <h4 style={{
-                  fontSize: '1.1rem',
-                  fontWeight: 700,
-                  margin: '4px 0 8px 0',
-                  color: 'var(--text-primary)'
-                }}>Production Capstones</h4>
-                
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                  Deploy clean code onto cloud instances, scale databases, handle error telemetry logs, and present your code live to startup tech leads.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* TESTIMONIALS SLIDER */}
-      <section style={{ padding: '20px 0' }}>
-        <div className="container">
-          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <span className="badge badge-cyan">Student Stories</span>
-            <h2 className="section-title">Cohort Breakthroughs</h2>
-            <p className="section-subtitle">
-              Proof that consistency beats intensity. Read how Indian students got placed.
-            </p>
-          </div>
-
+          {/* Testimonial slider card */}
           <div className="glass-card reveal reveal-up delay-100" style={{
-            position: 'relative',
             padding: '24px',
-            borderRadius: '24px',
-            border: '1px solid var(--border-color)'
+            border: '1.5px solid var(--border-color)',
+            background: 'rgba(22, 17, 38, 0.4)',
+            maxWidth: '750px',
+            margin: '0 auto',
+            textAlign: 'left'
           }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              marginBottom: '16px'
-            }}>
-              {/* Avatar circle with initials */}
-              <div style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)',
-                color: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-                fontSize: '0.95rem'
-              }}>
-                {TESTIMONIALS[testimonialIdx].name.substring(0, 2)}
-              </div>
-              
-              <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {TESTIMONIALS[testimonialIdx].name}
-                </h4>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  {TESTIMONIALS[testimonialIdx].role}
-                </p>
-              </div>
-            </div>
+            <span style={{ fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {TESTIMONIALS[testimonialIdx].days}
+            </span>
 
-            <p style={{
-              fontSize: '0.88rem',
-              lineHeight: '1.5',
-              color: 'var(--text-secondary)',
-              fontStyle: 'italic',
-              marginBottom: '20px',
-              minHeight: '80px',
-              transition: 'opacity 0.3s ease'
-            }}>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: '12px 0 16px 0', fontStyle: 'italic' }}>
               "{TESTIMONIALS[testimonialIdx].quote}"
             </p>
 
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderTop: '1px solid var(--border-color)',
-              paddingTop: '14px'
-            }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontSize: '0.75rem',
-                color: 'var(--primary)',
-                fontWeight: 700
-              }}>
-                <CheckCircle size={14} />
-                {TESTIMONIALS[testimonialIdx].days}
-              </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h4 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {TESTIMONIALS[testimonialIdx].name}
+                </h4>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {TESTIMONIALS[testimonialIdx].role}
+                </p>
+              </div>
 
-              {/* Slider Arrow controls */}
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button 
                   onClick={prevTestimonial}
                   style={{
-                    background: 'transparent',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
+                    background: 'var(--bg-input)',
+                    border: '1.5px solid var(--border-color)',
                     width: '32px',
                     height: '32px',
-                    color: 'var(--text-primary)',
-                    cursor: 'pointer',
+                    borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    transition: 'all 0.2s ease'
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer'
                   }}
                 >
                   <ChevronLeft size={16} />
@@ -1383,17 +966,16 @@ export default function App() {
                 <button 
                   onClick={nextTestimonial}
                   style={{
-                    background: 'transparent',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
+                    background: 'var(--bg-input)',
+                    border: '1.5px solid var(--border-color)',
                     width: '32px',
                     height: '32px',
-                    color: 'var(--text-primary)',
-                    cursor: 'pointer',
+                    borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    transition: 'all 0.2s ease'
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer'
                   }}
                 >
                   <ChevronRight size={16} />
@@ -1404,235 +986,292 @@ export default function App() {
         </div>
       </section>
 
-      {/* LEAD CAPTURE FORM SECTION */}
-      <section id="challenge-form" style={{ padding: '20px 0 60px 0' }}>
-        <div className="container">
-          <div className="glass-card reveal reveal-up" style={{
-            padding: '30px 20px',
-            borderRadius: '24px',
-            border: '1px solid var(--border-color)',
-            background: 'linear-gradient(180deg, var(--bg-card) 0%, rgba(18, 16, 24, 0.4) 100%)'
-          }}>
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <span className="badge">Streak Season</span>
-              <h3 style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.65rem',
-                fontWeight: 700,
-                color: 'var(--text-primary)',
-                marginBottom: '8px'
-              }}>Lock in Your Spot</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                Commit to the 60-day coding streak challenge. Build muscle memory, track commits, and unlock recruiter catalogs.
+      {/* FREQUENTLY ASKED QUESTIONS */}
+      <section style={{ padding: '36px 0', borderTop: '1.5px solid var(--border-color)', background: 'rgba(var(--bg-main-rgb), 0.2)' }}>
+        <div className="container" style={{ maxWidth: '750px' }}>
+          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '28px' }}>
+            <span className="badge">FAQ</span>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.85rem', fontWeight: 700 }}>
+              Got Questions?
+            </h2>
+          </div>
+
+          <div className="reveal reveal-up delay-100" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {FAQS.map((faq, index) => {
+              const isOpen = !!openFaq[index];
+              return (
+                <div key={index} className="faq-item" style={{ textAlign: 'left' }}>
+                  <div className="faq-header" onClick={() => handleFaqToggle(index)}>
+                    <span>{faq.question}</span>
+                    <ChevronDown 
+                      size={18} 
+                      style={{ 
+                        transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', 
+                        transition: 'transform 0.25s ease',
+                        color: isOpen ? 'var(--primary)' : 'var(--text-muted)'
+                      }} 
+                    />
+                  </div>
+                  <div 
+                    className="faq-content" 
+                    style={{ 
+                      maxHeight: isOpen ? '160px' : '0px',
+                      paddingBottom: isOpen ? '16px' : '0px'
+                    }}
+                  >
+                    {faq.answer}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* LEAD CAPTURE FORM */}
+      <section id="challenge-form" style={{ padding: '40px 0', borderTop: '1.5px solid var(--border-color)' }}>
+        <div className="container" style={{ maxWidth: '580px' }}>
+          <div className="glass-card reveal reveal-up" style={{ padding: '28px', border: '1.5px solid var(--border-color)' }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <span className="badge badge-cyan">Apply Today</span>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                Secure Cohort Spot
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Enter your details to join the upcoming 60-day streak challenges.
               </p>
             </div>
 
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              alert("🎉 Welcome to the cohort! Your coding glow-up starts tonight. Check your email for onboarding details!");
-              setStudentCount(prev => prev + 1);
-            }} style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px'
-            }}>
+            <form onSubmit={(e) => { e.preventDefault(); alert("Thanks! Application submitted."); }} style={{ display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
               <div>
-                <label style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  color: 'var(--text-secondary)',
-                  display: 'block',
-                  marginBottom: '6px'
-                }}>Your Name</label>
-                <input 
-                  type="text" 
-                  className="glass-input" 
-                  placeholder="e.g. Rohan Patel" 
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  color: 'var(--text-secondary)',
-                  display: 'block',
-                  marginBottom: '6px'
-                }}>Your Student Email</label>
-                <input 
-                  type="email" 
-                  className="glass-input" 
-                  placeholder="e.g. rohan@university.edu" 
-                  required
-                />
-              </div>
-
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginTop: '4px'
-              }}>
-                <input 
-                  type="checkbox" 
-                  id="agree-terms" 
-                  style={{
-                    accentColor: 'var(--primary)',
-                    width: '16px',
-                    height: '16px'
-                  }}
-                  required
-                />
-                <label htmlFor="agree-terms" style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--text-secondary)'
-                }}>
-                  I commit to committing code and posting on LinkedIn daily for 60 days.
+                <label style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                  Your Full Name
                 </label>
+                <input type="text" placeholder="e.g. Rohan Sharma" className="glass-input" required />
               </div>
 
-              <button 
-                type="submit" 
-                className="btn-primary" 
-                style={{ width: '100%', marginTop: '8px' }}
-              >
-                Accept Challenge & Start Streak
-                <ArrowRight size={18} />
+              <div>
+                <label style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                  College Email Address
+                </label>
+                <input type="email" placeholder="e.g. rohan@vit.edu" className="glass-input" required />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                  Select Track Milestone
+                </label>
+                <select className="glass-input" style={{ appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%236B7280\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }} required>
+                  <option value="60day">60-Day Challenge (Software & AI)</option>
+                  <option value="claude">60-Day Claude Track (Advanced Prompting)</option>
+                  <option value="31day">31-Day AI Cohort (RAG Chatbots)</option>
+                </select>
+              </div>
+
+              <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '8px' }}>
+                <Zap size={16} />
+                Submit Application
               </button>
             </form>
-
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: '8px',
-              marginTop: '20px',
-              fontSize: '0.75rem',
-              color: 'var(--text-muted)'
-            }}>
-              <ShieldCheck size={14} style={{ color: '#10B981' }} />
-              <span>100% Free Coding Cohort. Run by ABTalks.</span>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* FAQS SECTION (Accordion) */}
-      <section style={{ padding: '20px 0 80px 0' }}>
+      {/* RASPBERRY PI STYLE FOOTER */}
+      <footer style={{
+        padding: '32px 0',
+        borderTop: '1.5px solid var(--border-color)',
+        background: 'var(--bg-main)',
+        textAlign: 'center',
+        position: 'relative',
+        zIndex: 10
+      }}>
         <div className="container">
-          <div className="reveal reveal-up" style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <span className="badge">Got Questions?</span>
-            <h2 className="section-title">Clarify the Vibe</h2>
-            <p className="section-subtitle">
-              Everything you need to know before locking in your streak.
-            </p>
-          </div>
-
           <div style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px'
+            alignItems: 'center',
+            gap: '14px'
           }}>
-            {FAQS.map((faq, idx) => (
-              <div 
-                key={idx} 
-                className="glass-card reveal reveal-up" 
-                style={{ 
-                  padding: '16px', 
-                  borderRadius: '16px',
-                  cursor: 'pointer',
-                  border: openFaq[idx] ? '1px solid var(--primary)' : '1px solid var(--border-color)',
-                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}
-                onClick={() => handleFaqToggle(idx)}
-              >
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <h4 style={{ 
-                    fontSize: '0.88rem', 
-                    fontWeight: 700, 
-                    color: 'var(--text-primary)',
-                    transition: 'color 0.3s ease'
-                  }}>
-                    {faq.question}
-                  </h4>
-                  <div style={{ color: 'var(--text-secondary)', transition: 'transform 0.3s' }}>
-                    {openFaq[idx] ? <ChevronDown size={18} style={{ transform: 'rotate(180deg)' }} /> : <ChevronDown size={18} />}
-                  </div>
-                </div>
+            {/* Logo bottom */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 800,
+              fontSize: '1.2rem',
+              fontStyle: 'italic',
+              letterSpacing: '-0.03em',
+              cursor: 'default',
+              userSelect: 'none'
+            }}>
+              <span style={{ color: '#BE123C', marginRight: '1px' }}>#</span>
+              <span style={{ color: 'var(--text-primary)' }}>ABtalks</span>
+              <span style={{ fontSize: '0.5rem', alignSelf: 'flex-start', marginLeft: '1px', color: 'var(--text-muted)' }}>®</span>
+            </div>
 
-                {openFaq[idx] && (
-                  <p style={{
-                    fontSize: '0.8rem',
-                    color: 'var(--text-secondary)',
-                    marginTop: '12px',
-                    lineHeight: '1.4',
-                    animation: 'fadeInUp 0.3s ease forwards'
-                  }}>
-                    {faq.answer}
-                  </p>
-                )}
-              </div>
-            ))}
+            <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', maxWidth: '400px', lineHeight: '1.4' }}>
+              Designed mobile-first. Building public consistency and recruiter visibility daily. © 2026 ABTalks Coding challenge. All rights reserved.
+            </p>
+
+            <div style={{ display: 'flex', gap: '16px', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+              <a href="#tracks-section" style={{ color: 'inherit', textDecoration: 'none' }}>Milestones</a>
+              <span>•</span>
+              <a href="#challenge-form" style={{ color: 'inherit', textDecoration: 'none' }}>Apply</a>
+              <span>•</span>
+              <a href="https://github.com" style={{ color: 'inherit', textDecoration: 'none' }}>GitHub</a>
+            </div>
           </div>
-        </div>
-      </section>
-
-      {/* FOOTER */}
-      <footer style={{
-        borderTop: '1px solid var(--border-color)',
-        padding: '30px 0 110px 0', 
-        textAlign: 'center',
-        background: 'rgba(0,0,0,0.02)'
-      }}>
-        <div className="container">
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            © {new Date().getFullYear()} ABTalks. Made by developers, for Indian student developers.
-          </p>
         </div>
       </footer>
 
-      {/* STICKY BOTTOM MOBILE CTA */}
-      <div style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: '16px 20px',
-        background: 'rgba(var(--bg-main-rgb), 0.8)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        borderTop: '1px solid var(--border-color)',
-        zIndex: 100,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        boxShadow: '0 -4px 15px rgba(0, 0, 0, 0.15)'
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 700 }}>
-            Next Cohort Starting
-          </span>
-          <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Clock size={12} />
-            In 3 Days
-          </span>
-        </div>
-        
-        <a href="#challenge-form" className="btn-primary" style={{
-          padding: '12px 20px',
-          fontSize: '0.9rem',
-          borderRadius: '10px'
+      {/* AUTH MODAL OVERLAY */}
+      {showAuthModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          animation: 'fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards'
         }}>
-          Start Streak
-          <ArrowRight size={16} />
-        </a>
-      </div>
+          <div className="glass-card" style={{
+            width: '100%',
+            maxWidth: '360px',
+            padding: '28px',
+            border: '1.5px solid var(--border-color)',
+            background: 'var(--bg-card)',
+            textAlign: 'left',
+            boxShadow: 'var(--shadow-lg)',
+            position: 'relative'
+          }}>
+            {/* Modal Header tabs */}
+            <div style={{ display: 'flex', borderBottom: '1.5px solid var(--border-color)', marginBottom: '20px' }}>
+              <button
+                type="button"
+                onClick={() => setAuthModalTab('signin')}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: `2.5px solid ${authModalTab === 'signin' ? 'var(--primary)' : 'transparent'}`,
+                  color: authModalTab === 'signin' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  padding: '10px 0',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthModalTab('signup')}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: `2.5px solid ${authModalTab === 'signup' ? 'var(--primary)' : 'transparent'}`,
+                  color: authModalTab === 'signup' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  padding: '10px 0',
+                  fontWeight: 700,
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                Sign Up
+              </button>
+            </div>
+
+            {/* Modal close button */}
+            <button
+              type="button"
+              onClick={() => setShowAuthModal(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontSize: '1.1rem',
+                fontWeight: 'bold',
+                padding: '4px'
+              }}
+            >
+              ✕
+            </button>
+
+            {/* Modal Forms */}
+            <form onSubmit={(e) => {
+              const email = e.currentTarget.elements.email.value;
+              const name = authModalTab === 'signup' ? e.currentTarget.elements.name.value : '';
+              handleAuthSubmit(e, email, name);
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {authModalTab === 'signup' && (
+                <div>
+                  <label style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                    Full Name
+                  </label>
+                  <input type="text" name="name" placeholder="e.g. Rohan Sharma" className="glass-input" required />
+                </div>
+              )}
+
+              <div>
+                <label style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                  Email Address
+                </label>
+                <input type="email" name="email" placeholder="e.g. student@college.edu" className="glass-input" required />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '6px' }}>
+                  Password
+                </label>
+                <input type="password" placeholder="••••••••" className="glass-input" required />
+              </div>
+
+              <button type="submit" disabled={authLoading} className="btn-primary" style={{ width: '100%', marginTop: '6px' }}>
+                {authLoading ? (
+                  <>
+                    <Clock size={16} className="animate-glow" />
+                    Please wait...
+                  </>
+                ) : (
+                  <>
+                    <Zap size={16} />
+                    {authModalTab === 'signin' ? 'Sign In' : 'Sign Up'}
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* OAuth Separator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '18px 0' }}>
+              <div style={{ flex: 1, height: '1.5px', background: 'var(--border-color)' }}></div>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>or continue with</span>
+              <div style={{ flex: 1, height: '1.5px', background: 'var(--border-color)' }}></div>
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => handleAuthSubmit(e, 'github@oauth.com', 'GitHub User')}
+              className="btn-secondary"
+              style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '8px' }}
+            >
+              <GithubIcon size={16} />
+              Continue with GitHub
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
