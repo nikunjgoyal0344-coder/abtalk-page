@@ -6,7 +6,7 @@ import {
   ChevronsLeft, ChevronsRight, CheckCircle2, Circle,
   Play, Pause, RotateCcw, Coffee, Zap, TrendingUp,
   ArrowRight, Plus, Trash2, Clock, Activity, RefreshCw,
-  CalendarCheck, Star, Award,
+  CalendarCheck, Star, Award, Sparkles,
 } from 'lucide-react';
 
 // ─── Custom SVG icons ────────────────────────────────
@@ -87,15 +87,182 @@ function standingInfo(rank, total) {
 
 
 // ─── HOME DASHBOARD ───────────────────────────────────
-function HomeDashboard({ streak, bestStreak, dayNum, totalDays, rank, totalStudents, tasks, setTasks, onNavigate, userSession }) {
-  const pct = Math.round((dayNum / totalDays) * 100);
+function HomeDashboard({ streak, bestStreak, dayNum, totalDays, rank, totalStudents, tasks, setTasks, onNavigate, userSession, onChallengeUpdate }) {
+  const completedCount = getCompletedDaysCount();
+  const pct = Math.round((completedCount / totalDays) * 100);
   const std = standingInfo(rank, totalStudents);
   const doneTasks = tasks.filter(t => t.done).length;
   const earnedPts = tasks.filter(t => t.done).reduce((s, t) => s + t.pts, 0);
   const firstName = userSession?.name?.split(' ')[0] || 'Coder';
 
+  // Tour state
+  const [onboardingDone, setOnboardingDone] = useState(() => {
+    return localStorage.getItem("abtalks_onboarding_done") === "true";
+  });
+  
+  // Vibe Pass state
+  const [vibePasses, setVibePasses] = useState(() => {
+    const saved = localStorage.getItem("abtalks_vibe_passes");
+    return saved ? parseInt(saved) : 3;
+  });
+  
+  // Yesterday completion check
+  const [yesterdayMissed, setYesterdayMissed] = useState(false);
+  useEffect(() => {
+    if (dayNum > 1) {
+      const yesterday = dayNum - 1;
+      const isDone = isDayCompleted(yesterday);
+      setYesterdayMissed(!isDone);
+    } else {
+      setYesterdayMissed(false);
+    }
+  }, [dayNum, streak]);
+
+  // Profile handle sync states
+  const [githubUser, setGithubUser] = useState(() => localStorage.getItem("abtalks_github_username") || '');
+  const [linkedinUser, setLinkedinUser] = useState(() => localStorage.getItem("abtalks_linkedin_username") || '');
+  const [profileSaved, setProfileSaved] = useState(() => !!(localStorage.getItem("abtalks_github_username") && localStorage.getItem("abtalks_linkedin_username")));
+
+  const dismissOnboarding = () => {
+    setOnboardingDone(true);
+    localStorage.setItem("abtalks_onboarding_done", "true");
+  };
+
+  const activateVibePass = () => {
+    if (vibePasses <= 0 || dayNum <= 1) return;
+    const yesterday = dayNum - 1;
+    
+    // deduct vibe pass
+    const nextPasses = vibePasses - 1;
+    setVibePasses(nextPasses);
+    localStorage.setItem("abtalks_vibe_passes", nextPasses.toString());
+    
+    // complete yesterday in localStorage
+    const yesterdayState = {};
+    DEFAULT_CHECKLIST_ITEMS.forEach(item => {
+      yesterdayState[item.key] = true;
+    });
+    localStorage.setItem("abtalks_checklist_day_" + yesterday, JSON.stringify(yesterdayState));
+    
+    // add mock timing log
+    const now = new Date().toISOString();
+    const timing = { startedAt: now, completedAt: now };
+    localStorage.setItem("abtalks_checklist_timing_day_" + yesterday, JSON.stringify(timing));
+    
+    // trigger updates
+    setYesterdayMissed(false);
+    onChallengeUpdate && onChallengeUpdate();
+  };
+
+  const handleSaveProfile = (e) => {
+    e.preventDefault();
+    if (!githubUser.trim() || !linkedinUser.trim()) return;
+    localStorage.setItem("abtalks_github_username", githubUser.trim());
+    localStorage.setItem("abtalks_linkedin_username", linkedinUser.trim());
+    setProfileSaved(true);
+  };
+
   return (
     <div>
+      {/* Onboarding Tour Card */}
+      {!onboardingDone && (
+        <div className="db-card db-card-red mb4 animate-fade-in" style={{ borderColor: 'var(--red-bdr)', background: 'var(--red-glow)', padding: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <span className="db-pill" style={{ marginBottom: 8, fontSize: 10 }}><Sparkles size={10} />NEW MEMBER TOUR</span>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 700, color: 'var(--t1)', marginBottom: 6 }}>
+                Welcome to the ABtalks 60-Day Challenge! 🚀
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--t2)', lineHeight: 1.5, marginBottom: 12 }}>
+                ABtalks is a verified proof-of-work coding portal. Here is how you build consistency and showcase your growth directly to recruiter networks:
+              </p>
+            </div>
+            <button type="button" className="db-btn btn-ghost" style={{ padding: '3px 8px', fontSize: 10 }} onClick={dismissOnboarding}>
+              Skip Tour
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 14 }}>
+            <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--bdr)', padding: 10, borderRadius: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--t1)', marginBottom: 4 }}>1. Check Challenge Day</div>
+              <div style={{ fontSize: 11, color: 'var(--t3)' }}>Read the coding instructions, specifications, and layout objectives daily.</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--bdr)', padding: 10, borderRadius: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--t1)', marginBottom: 4 }}>2. Complete & Verify</div>
+              <div style={{ fontSize: 11, color: 'var(--t3)' }}>Check off build requirements as you code. Add/remove items to match your workflow.</div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--bdr)', padding: 10, borderRadius: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--t1)', marginBottom: 4 }}>3. Submit Proof of Work</div>
+              <div style={{ fontSize: 11, color: 'var(--t3)' }}>Submit your GitHub commit URL and LinkedIn learning post link to protect your streak before midnight.</div>
+            </div>
+          </div>
+          <button type="button" className="db-btn btn-red" style={{ padding: '6px 12px', fontSize: 11 }} onClick={dismissOnboarding}>
+            Start Daily Challenge →
+          </button>
+        </div>
+      )}
+
+      {/* Vibe Pass / Streak Restore Card */}
+      {yesterdayMissed && (
+        <div className="db-card mb4 animate-fade-in" style={{ borderColor: 'var(--amber)', background: 'var(--amb-glow)', padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <span style={{ fontSize: 24 }}>⚠️</span>
+              <div>
+                <div style={{ fontWeight: 700, color: 'var(--t1)', fontSize: 13.5 }}>Yesterday's Streak Reset Warning</div>
+                <div style={{ fontSize: 11.5, color: 'var(--t2)' }}>
+                  You missed completing Day {dayNum - 1} challenge yesterday. Your streak was broken!
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: 'var(--t3)' }}>({vibePasses} Vibe Passes left)</span>
+              <button type="button" className="db-btn" style={{ padding: '6px 12px', fontSize: 11, background: 'var(--amber)', color: '#000', border: 'none', fontWeight: 700 }}
+                disabled={vibePasses <= 0}
+                onClick={activateVibePass}>
+                🔥 Restore Streak with Vibe Pass
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* First Day No Streak Banner */}
+      {streak === 0 && (
+        <div className="db-card mb4 animate-fade-in" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(6, 182, 212, 0.05) 100%)', border: '1px dashed var(--bdr-h)', padding: '20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🔥</div>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 700, color: 'var(--t1)', marginBottom: 6 }}>
+            Set Your Coding Fire!
+          </h3>
+          <p style={{ fontSize: '0.82rem', color: 'var(--t2)', maxWidth: 460, margin: '0 auto 14px', lineHeight: 1.5 }}>
+            You don't have an active streak yet. Complete today's requirements or submit your proof of work to start your unbroken 60-day streak!
+          </p>
+          <button type="button" className="db-btn btn-red" style={{ padding: '8px 16px', fontSize: 12 }} onClick={() => onNavigate('challenge')}>
+            Go to Challenge Day {dayNum} →
+          </button>
+        </div>
+      )}
+
+      {/* Empty Profile Actions Card */}
+      {!profileSaved && (
+        <div className="db-card mb4 animate-fade-in" style={{ border: '1px solid var(--bdr)', background: 'var(--bg1)', padding: '16px' }}>
+          <div className="db-sh" style={{ marginBottom: 6 }}><Settings size={14} />Complete Your Developer Profile</div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--t3)', marginBottom: 12 }}>
+            Your profile is currently empty. Sync your handles to unlock streak automation, leaderboard rankings, and direct recruiter visibility.
+          </p>
+          <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <input className="db-inp" placeholder="GitHub username (e.g. johndoe)" value={githubUser}
+                onChange={e => setGithubUser(e.target.value)} required />
+              <input className="db-inp" placeholder="LinkedIn handle (e.g. in/johndoe)" value={linkedinUser}
+                onChange={e => setLinkedinUser(e.target.value)} required />
+            </div>
+            <button type="submit" className="db-btn btn-red" style={{ alignSelf: 'flex-start', padding: '6px 14px', fontSize: 11 }}>
+              Save & Sync Accounts
+            </button>
+          </form>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <div className="db-pill"><Flame size={11} />{streak} Day Streak 🔥</div>
@@ -133,7 +300,7 @@ function HomeDashboard({ streak, bestStreak, dayNum, totalDays, rank, totalStude
         <div className="db-card db-card-red">
           <div className="db-sh"><Activity size={14} />Challenge Progress</div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 14 }}>
-            <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 52, fontWeight: 700, color: 'var(--t1)', lineHeight: 1 }}>{pct}</span>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: 52, fontWeight: 700, color: 'var(--t1)', lineHeight: 1 }}>{pct}</span>
             <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--t3)', paddingBottom: 8 }}>%</span>
             <span style={{ fontSize: 13, color: 'var(--t3)', paddingBottom: 10, marginLeft: 4 }}>complete</span>
           </div>
@@ -198,7 +365,7 @@ function HomeDashboard({ streak, bestStreak, dayNum, totalDays, rank, totalStude
           <div className="db-sh"><Star size={14} />Student Standing</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 16 }}>
             <div style={{ textAlign: 'center', flexShrink: 0 }}>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 40, fontWeight: 700, color: 'var(--cyan)', lineHeight: 1 }}>#{rank}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 40, fontWeight: 700, color: 'var(--cyan)', lineHeight: 1 }}>#{rank}</div>
               <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 4 }}>Rank</div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -218,7 +385,7 @@ function HomeDashboard({ streak, bestStreak, dayNum, totalDays, rank, totalStude
               { val: ACHIEVEMENTS.filter(a => a.unlocked).length,              lbl: 'Badges'  },
             ].map(({ val, lbl }) => (
               <div key={lbl} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, padding: '10px 8px', border: '1px solid var(--bdr)' }}>
-                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, color: 'var(--t1)' }}>{val}</div>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: 'var(--t1)' }}>{val}</div>
                 <div style={{ fontSize: 11, color: 'var(--t3)' }}>{lbl}</div>
               </div>
             ))}
@@ -263,7 +430,7 @@ function TodayTask({ tasks, setTasks }) {
       <div className="db-card mt4 mb4">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--t2)' }}>{done} of {tasks.length} completed</span>
-          <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, color: pct === 100 ? 'var(--green)' : 'var(--red-l)' }}>{pct}%</span>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 700, color: pct === 100 ? 'var(--green)' : 'var(--red-l)' }}>{pct}%</span>
         </div>
         <div className="db-pb-wrap" style={{ height: 10 }}>
           <div className="db-pb pb-red" style={{ '--pw': `${pct}%` }} />
@@ -287,7 +454,7 @@ function TodayTask({ tasks, setTasks }) {
       {pct === 100 && (
           <div className="db-card db-card-red mt4" style={{ textAlign: 'center', padding: 28 }}>
             <div style={{ fontSize: 44, marginBottom: 10 }}>🎉</div>
-            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 18, fontWeight: 700, color: 'var(--t1)', marginBottom: 4 }}>All tasks done!</div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: 'var(--t1)', marginBottom: 4 }}>All tasks done!</div>
             <div style={{ fontSize: 13, color: 'var(--t3)' }}>Your streak is safe. Back again tomorrow!</div>
           </div>
         )}
@@ -447,8 +614,88 @@ console.log(a.length);`,
   }
 ];
 
+const TYPING_SNIPPETS = [
+  {
+    lang: "JavaScript",
+    code: "const binarySearch = (arr, val) => {\n  let l = 0, r = arr.length - 1;\n  while (l <= r) {\n    const m = Math.floor((l + r) / 2);\n    if (arr[m] === val) return m;\n    if (arr[m] < val) l = m + 1;\n    else r = m - 1;\n  }\n  return -1;\n};"
+  },
+  {
+    lang: "React Hook",
+    code: "useEffect(() => {\n  const handler = setTimeout(() => {\n    setDebouncedValue(value);\n  }, delay);\n  return () => {\n    clearTimeout(handler);\n  };\n}, [value, delay]);"
+  },
+  {
+    lang: "CSS Grid",
+    code: ".card-grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));\n  gap: 20px;\n  align-items: stretch;\n}"
+  }
+];
+
 function Games() {
   const [activeTab, setActiveTab] = useState('memory');
+
+  // Game 5: Typing Speed Test
+  const [typingIdx, setTypingIdx] = useState(0);
+  const [typedText, setTypedText] = useState('');
+  const [typingStart, setTypingStart] = useState(null);
+  const [typingTime, setTypingTime] = useState(0);
+  const [typingDone, setTypingDone] = useState(false);
+  const typingTimerRef = useRef(null);
+
+  const activeSnippet = TYPING_SNIPPETS[typingIdx].code;
+
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearInterval(typingTimerRef.current);
+    };
+  }, []);
+
+  const handleTypingChange = (e) => {
+    const val = e.target.value;
+    if (typingDone) return;
+    
+    if (!typingStart && val.length > 0) {
+      setTypingStart(Date.now());
+      typingTimerRef.current = setInterval(() => {
+        setTypingTime(t => t + 1);
+      }, 1000);
+    }
+    
+    setTypedText(val);
+
+    if (val.length >= activeSnippet.length) {
+      setTypingDone(true);
+      if (typingTimerRef.current) clearInterval(typingTimerRef.current);
+    }
+  };
+
+  const restartTyping = () => {
+    if (typingTimerRef.current) clearInterval(typingTimerRef.current);
+    setTypedText('');
+    setTypingStart(null);
+    setTypingTime(0);
+    setTypingDone(false);
+  };
+
+  const changeSnippet = (nextIdx) => {
+    setTypingIdx(nextIdx);
+    if (typingTimerRef.current) clearInterval(typingTimerRef.current);
+    setTypedText('');
+    setTypingStart(null);
+    setTypingTime(0);
+    setTypingDone(false);
+  };
+
+  const getTypingStats = () => {
+    const minutes = typingTime > 0 ? (typingTime / 60) : (1 / 60);
+    const charCount = typedText.length;
+    let correct = 0;
+    for (let i = 0; i < charCount; i++) {
+      if (typedText[i] === activeSnippet[i]) correct++;
+    }
+    const accuracy = charCount > 0 ? Math.round((correct / charCount) * 100) : 100;
+    const wpm = Math.round((correct / 5) / minutes);
+    return { wpm, accuracy };
+  };
+  const { wpm: currentWpm, accuracy: currentAcc } = getTypingStats();
 
   // Game 1: Memory
   const [cards, setCards] = useState(mkCards);
@@ -613,7 +860,8 @@ function Games() {
           { id: 'memory', label: 'Memory Flip' },
           { id: 'binary', label: 'Binary Search Guess' },
           { id: 'syntax', label: 'Syntax Matcher' },
-          { id: 'quiz',   label: 'JS Scope Quiz' }
+          { id: 'quiz',   label: 'JS Scope Quiz' },
+          { id: 'typing', label: 'Speed Typist' }
         ].map(tab => (
           <button key={tab.id} type="button"
             className={`pm-tab${activeTab === tab.id ? ' db-on' : ''}`}
@@ -628,11 +876,11 @@ function Games() {
         <div className="db-card" style={{ maxWidth: 440, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
             <div>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: 'var(--t1)' }}>{cards.filter(c => c.matched).length / 2}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: 'var(--t1)' }}>{cards.filter(c => c.matched).length / 2}</div>
               <div style={{ fontSize: 11, color: 'var(--t3)' }}>Pairs Found</div>
             </div>
             <div>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: 'var(--t1)' }}>{moves}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 700, color: 'var(--t1)' }}>{moves}</div>
               <div style={{ fontSize: 11, color: 'var(--t3)' }}>Moves</div>
             </div>
             <button type="button" className="db-btn btn-ghost" style={{ padding: '6px 12px', fontSize: 12 }} onClick={restartMemory}>
@@ -643,7 +891,7 @@ function Games() {
           {won ? (
             <div style={{ textAlign: 'center', padding: '28px 0' }}>
               <div style={{ fontSize: 50 }}>🎉</div>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, color: 'var(--t1)', margin: '12px 0 6px' }}>You won!</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 700, color: 'var(--t1)', margin: '12px 0 6px' }}>You won!</div>
               <div style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 18 }}>Completed in {moves} moves</div>
               <button type="button" className="db-btn btn-red" onClick={restartMemory}>Play Again</button>
             </div>
@@ -670,11 +918,11 @@ function Games() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
             <div>
               <div style={{ fontSize: 12, color: 'var(--t3)' }}>Optimal Range</div>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 18, fontWeight: 700, color: 'var(--red-l)' }}>[{low} - {high}]</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: 'var(--red-l)' }}>[{low} - {high}]</div>
             </div>
             <div>
               <div style={{ fontSize: 12, color: 'var(--t3)' }}>Optimal Next Guess</div>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 18, fontWeight: 700, color: 'var(--cyan)' }}>{Math.floor((low + high) / 2)}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: 'var(--cyan)' }}>{Math.floor((low + high) / 2)}</div>
             </div>
             <button type="button" className="db-btn btn-ghost" style={{ padding: '6px 12px', fontSize: 12 }} onClick={restartBinary}>
               <RefreshCw size={13} />Reset
@@ -684,7 +932,7 @@ function Games() {
           {wonSearch ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ fontSize: 44 }}>🏆</div>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 18, fontWeight: 700, color: 'var(--t1)', margin: '8px 0' }}>Correct! Secret number was {targetNum}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: 'var(--t1)', margin: '8px 0' }}>Correct! Secret number was {targetNum}</div>
               <div style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 18 }}>Found in {guessHistory.length} attempts</div>
               <button type="button" className="db-btn btn-red" onClick={restartBinary}>Play Again</button>
             </div>
@@ -726,7 +974,7 @@ function Games() {
           {syntaxWon ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ fontSize: 44 }}>🎓</div>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 18, fontWeight: 700, color: 'var(--t1)', margin: '8px 0' }}>Perfect Match!</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: 'var(--t1)', margin: '8px 0' }}>Perfect Match!</div>
               <div style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 18 }}>You matched all coding concepts correctly.</div>
               <button type="button" className="db-btn btn-red" onClick={restartSyntax}>Play Again</button>
             </div>
@@ -788,7 +1036,7 @@ function Games() {
           {quizDone ? (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <div style={{ fontSize: 44 }}>💡</div>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 18, fontWeight: 700, color: 'var(--t1)', margin: '8px 0' }}>Quiz Complete!</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 700, color: 'var(--t1)', margin: '8px 0' }}>Quiz Complete!</div>
               <div style={{ fontSize: 14, color: 'var(--t2)', marginBottom: 18 }}>You scored {quizScore} / {QUIZ_QUESTIONS.length}</div>
               <button type="button" className="db-btn btn-red" onClick={restartQuiz}>Try Again</button>
             </div>
@@ -864,6 +1112,101 @@ function Games() {
                   </button>
                 )}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Typing Speed Game */}
+      {activeTab === 'typing' && (
+        <div className="db-card" style={{ maxWidth: 550, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {TYPING_SNIPPETS.map((snip, sidx) => (
+                <button key={sidx} type="button" 
+                  className={`db-btn ${typingIdx === sidx ? 'btn-red' : 'btn-ghost'}`}
+                  style={{ padding: '4px 10px', fontSize: 11 }}
+                  onClick={() => changeSnippet(sidx)}>
+                  {snip.lang}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="db-btn btn-ghost" style={{ padding: '6px 12px', fontSize: 11 }} onClick={restartTyping}>
+              <RefreshCw size={12} />Reset
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 20, marginBottom: 14, background: 'rgba(255,255,255,0.01)', border: '1px solid var(--bdr)', borderRadius: 8, padding: 12 }}>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, color: 'var(--t1)' }}>
+                {currentWpm}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase' }}>Speed (WPM)</div>
+            </div>
+            <div style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid var(--bdr)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, color: 'var(--t1)' }}>
+                {currentAcc}%
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase' }}>Accuracy</div>
+            </div>
+            <div style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid var(--bdr)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 700, color: 'var(--t1)' }}>
+                {typingTime}s
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase' }}>Time</div>
+            </div>
+          </div>
+
+          <div style={{ position: 'relative' }}>
+            <div className="typing-display-box" onClick={() => document.getElementById("typing-hidden-input").focus()}>
+              {activeSnippet.split("").map((char, index) => {
+                let colorClass = "char-untyped";
+                if (index < typedText.length) {
+                  colorClass = typedText[index] === char ? "char-correct" : "char-incorrect";
+                } else if (index === typedText.length) {
+                  colorClass = "char-cursor";
+                }
+                return (
+                  <span key={index} className={colorClass}>
+                    {char}
+                  </span>
+                );
+              })}
+            </div>
+
+            <textarea
+              id="typing-hidden-input"
+              value={typedText}
+              onChange={handleTypingChange}
+              disabled={typingDone}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                opacity: 0,
+                width: '100%',
+                height: '100%',
+                cursor: 'text',
+                resize: 'none',
+                zIndex: 2
+              }}
+              placeholder="Click here to focus and start typing..."
+              autoFocus
+            />
+          </div>
+
+          {typingDone && (
+            <div className="success" style={{ marginTop: 14 }}>
+              <div className="success-title">🎉 TYPING SPEED TEST COMPLETE</div>
+              <div className="success-text">
+                You finished with <strong>{currentWpm} WPM</strong> and <strong>{currentAcc}%</strong> accuracy. Outstanding job!
+              </div>
+            </div>
+          )}
+
+          {!typingStart && !typingDone && (
+            <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 10, textAlign: 'center' }}>
+              💡 Click the box above and start typing to begin the timer.
             </div>
           )}
         </div>
@@ -962,7 +1305,7 @@ function AchievementsPage({ streak, dayNum }) {
       <div className="db-card db-card-red mt4 mb4">
         <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ textAlign: 'center', flexShrink: 0 }}>
-            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 46, fontWeight: 700, color: 'var(--red-l)', lineHeight: 1 }}>{totalPts}</div>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: 46, fontWeight: 700, color: 'var(--red-l)', lineHeight: 1 }}>{totalPts}</div>
             <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 4 }}>Total Points</div>
           </div>
           <div style={{ flex: 1, minWidth: 180 }}>
@@ -1013,7 +1356,7 @@ function SettingsPage({ userSession, onLogOut }) {
       <div className="set-sec mt4">
         <div className="set-title">Profile</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 54, height: 54, borderRadius: 14, background: 'var(--red-glow)', border: '1px solid var(--red-bdr)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: 20, color: 'var(--red-l)' }}>{initials}</div>
+          <div style={{ width: 54, height: 54, borderRadius: 14, background: 'var(--red-glow)', border: '1px solid var(--red-bdr)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 20, color: 'var(--red-l)' }}>{initials}</div>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>{userSession?.name || 'Student'}</div>
             <div style={{ fontSize: 13, color: 'var(--t3)' }}>{userSession?.email || 'student@email.com'}</div>
@@ -1469,8 +1812,8 @@ function ChallengeDay({ userSession, onChallengeUpdate }) {
             </div>
 
             <div className="calendar-grid">
-              {WEEKDAY_LABELS.map(lbl => (
-                <div key={lbl} className="calendar-weekday">{lbl}</div>
+              {WEEKDAY_LABELS.map((lbl, idx) => (
+                <div key={`${lbl}-${idx}`} className="calendar-weekday">{lbl}</div>
               ))}
               {cells.map((cell, idx) => {
                 if (!cell) return <div key={`empty-${idx}`} className="calendar-day empty" />;
@@ -1597,7 +1940,7 @@ function ChallengeDay({ userSession, onChallengeUpdate }) {
           </div>
 
           <div className="field">
-            <label htmlFor="linkedin"><span class="icon">in</span> LinkedIn Post URL</label>
+            <label htmlFor="linkedin"><span className="icon">in</span> LinkedIn Post URL</label>
             <input id="linkedin" type="url" className="db-inp" placeholder="https://linkedin.com/posts/..." value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} required />
           </div>
 
@@ -1835,6 +2178,7 @@ export default function Dashboard({ userSession, onLogOut, theme, onToggleTheme 
               tasks={tasks} setTasks={setTasks}
               onNavigate={navigate}
               userSession={userSession}
+              onChallengeUpdate={() => setChallengeTrigger(t => t + 1)}
             />
           )}
           {page === 'challenge' && (
