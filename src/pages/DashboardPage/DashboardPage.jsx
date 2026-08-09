@@ -1446,7 +1446,7 @@ function ChallengeDay({ userSession, onChallengeUpdate }) {
           <div>
             <div className="calendar-title">Streak Calendar</div>
             <div className="calendar-subtitle">
-              {startDate} → {formatDate(end)} · Day {currentDay} of {TOTAL_DAYS}
+              {CHALLENGE_START_DATE} → {formatDate(end)} · Day {currentDay} of {TOTAL_DAYS}
             </div>
           </div>
           <div className="calendar-head-right" style={{ display: 'flex', gap: 8 }}>
