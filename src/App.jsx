@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Dashboard from './pages/DashboardPage/DashboardPage';
 import { 
   Users, 
   Award, 
@@ -125,7 +126,27 @@ const FAQS = [
   }
 ];
 
+// ---- Simple path-based router ----
+function getRoute() {
+  const path = window.location.pathname;
+  if (path.startsWith('/dashboard')) return 'dashboard';
+  return 'landing';
+}
+
 export default function App() {
+  const [route, setRoute] = useState(getRoute());
+
+  useEffect(() => {
+    const onPopState = () => setRoute(getRoute());
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  const navigate = (path) => {
+    window.history.pushState({}, '', path);
+    setRoute(getRoute());
+  };
+
   const [theme, setTheme] = useState('dark');
   const [studentCount, setStudentCount] = useState(15248);
   const [recentNotification, setRecentNotification] = useState(null);
@@ -280,13 +301,28 @@ export default function App() {
       });
       setAuthLoading(false);
       setShowAuthModal(false);
+      navigate('/dashboard');
     }, 1200);
   };
 
   const handleSignOut = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     triggerParticles(e);
     setUserSession(null);
+    navigate('/');
   };
+
+  // Route: Dashboard
+  if (route === 'dashboard') {
+    return (
+      <Dashboard
+        theme={theme}
+        onToggleTheme={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        userSession={userSession}
+        onLogOut={handleSignOut}
+      />
+    );
+  }
 
   return (
     <div className="app-container">
@@ -348,6 +384,24 @@ export default function App() {
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
+
+            {userSession && (
+              <button
+                onClick={() => navigate('/dashboard')}
+                style={{
+                  background: 'var(--primary-glow)',
+                  border: '1.5px solid var(--primary)',
+                  borderRadius: '8px',
+                  padding: '6px 14px',
+                  color: 'var(--primary)',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 700
+                }}
+              >
+                Dashboard
+              </button>
+            )}
 
             {userSession ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
