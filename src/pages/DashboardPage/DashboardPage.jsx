@@ -24,12 +24,13 @@ const LinkedinIcon = ({ size = 16, ...p }) => (
 
 // ─── Static data ─────────────────────────────────────
 const NAV = [
-  { id: 'home',  label: 'Dashboard',    icon: LayoutDashboard },
-  { id: 'today', label: "Today's Task", icon: Target },
-  { id: 'pomo',  label: 'Pomodoro',     icon: TimerIcon },
-  { id: 'games', label: 'Mind Games',   icon: Gamepad2 },
-  { id: 'study', label: 'Study Log',    icon: BookOpen },
-  { id: 'ach',   label: 'Achievements', icon: Trophy },
+  { id: 'home',      label: 'Dashboard',     icon: LayoutDashboard },
+  { id: 'challenge', label: 'Challenge Day',  icon: CalendarCheck },
+  { id: 'today',     label: "Today's Task",  icon: Target },
+  { id: 'pomo',      label: 'Pomodoro',      icon: TimerIcon },
+  { id: 'games',     label: 'Mind Games',    icon: Gamepad2 },
+  { id: 'study',     label: 'Study Log',     icon: BookOpen },
+  { id: 'ach',       label: 'Achievements',  icon: Trophy },
 ];
 
 const INIT_TASKS = [
@@ -1074,18 +1075,715 @@ function SettingsPage({ userSession, onLogOut }) {
 }
 
 // ─── MAIN EXPORT ─────────────────────────────────────
+
+// ─── CHALLENGE DAY VIEWS & DATE HELPERS ────────────────
+const CHALLENGE_START_DATE = "2026-07-28";
+const TOTAL_DAYS = 60;
+const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
+
+const DEFAULT_CHECKLIST_ITEMS = [
+  { key: "assignment", label: "Complete today's assigned challenge" },
+  { key: "build", label: "Build and test your project" },
+  { key: "github", label: "Push your work to GitHub" },
+  { key: "linkedin", label: "Share your progress on LinkedIn" }
+];
+
+const CHALLENGE_DATA = {
+  1: { title: "Git & GitHub Basics", description: "Initialize a local git repository, create your first repository on GitHub, commit your files, and push to remote. Write a short explanation of git branches." },
+  2: { title: "Markdown Documentation", description: "Create a README.md file for your profile or project detailing your coding stack, design inspiration, and daily goals. Add formatting, tables, and images." },
+  3: { title: "Responsive Layouts with CSS Flexbox", description: "Create a fully responsive landing page navigation bar and hero section using CSS Flexbox. Test alignment on 390px mobile viewports." },
+  4: { title: "CSS Grid Dashboard", description: "Build a classic dashboard card grid layout using CSS Grid. Make sure columns wrap dynamically (e.g. repeat(auto-fit, minmax(280px, 1fr))) without media queries." },
+  5: { title: "JavaScript DOM Manipulation", description: "Build a fully working interactive theme toggler or counter that stores state in local storage. Focus on clean event listeners." },
+  6: { title: "API Fetch & Data Rendering", description: "Fetch public coder stats or a daily quote from an API (e.g., GitHub API) and display it cleanly on your web app with loading animations." },
+  7: { title: "Algorithm: Binary Search implementation", description: "Write a clean binary search algorithm in your preferred language. Test boundaries, negative cases, and empty lists. Create a visualization page." },
+  8: { title: "LinkedIn Developer Networking", description: "Write an educational post on LinkedIn sharing your learnings on binary search partition logic. Link to your GitHub code." },
+  9: { title: "Memory Storage and Cookies", description: "Explain the differences between Cookies, SessionStorage, and LocalStorage. Write code to sync list data dynamically across tabs." },
+  10: { title: "CSS Keyframe Animations", description: "Implement hardware-accelerated CSS animations (transform & opacity) for entry transitions, hover triggers, and active buttons." }
+};
+
+function parseDate(value) {
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function addDays(date, amount) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + amount);
+  return copy;
+}
+
+function daysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getDayFromDate(date) {
+  const start = parseDate(CHALLENGE_START_DATE);
+  const diff = Math.floor((date - start) / 86400000);
+  if (diff < 0) return 1;
+  return Math.min(TOTAL_DAYS, diff + 1);
+}
+
+function getChallengeMonths() {
+  const start = parseDate(CHALLENGE_START_DATE);
+  const end = addDays(start, TOTAL_DAYS - 1);
+  const months = [];
+  let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const last = new Date(end.getFullYear(), end.getMonth(), 1);
+  while (cursor <= last) {
+    months.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+  return months;
+}
+
+function getChallengeInfo(dayNumber) {
+  return CHALLENGE_DATA[dayNumber] || {
+    title: `Day ${dayNumber} Challenge`,
+    description: "Read the challenge instructions carefully, build the required project, and submit proof of work when you're done."
+  };
+}
+
+// ─── CHECKS COMPLETION ACROSS ALL PAGES ───────────────
+function isDayCompleted(dayNumber, checklistItemsList) {
+  const todayLocal = new Date();
+  const currentDay = getDayFromDate(todayLocal);
+  if (dayNumber > currentDay) return false;
+
+  // Check checklist completion percentage
+  try {
+    const raw = localStorage.getItem("abtalks_checklist_day_" + dayNumber);
+    if (raw) {
+      const state = JSON.parse(raw);
+      const items = checklistItemsList || DEFAULT_CHECKLIST_ITEMS;
+      const total = items.length;
+      const done = items.filter(item => state[item.key]).length;
+      if (total > 0 && done === total) return true;
+    }
+  } catch (e) {}
+
+  // Check proof submission
+  try {
+    const raw = localStorage.getItem("abtalks_proof_day_" + dayNumber);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.github && parsed.linkedin) return true;
+    }
+  } catch (e) {}
+
+  return false;
+}
+
+function computeStreak(checklistItemsList) {
+  const todayLocal = new Date();
+  const currentDay = getDayFromDate(todayLocal);
+  let count = 0;
+  for (let d = currentDay; d >= 1; d--) {
+    if (isDayCompleted(d, checklistItemsList)) count++;
+    else break;
+  }
+  return count;
+}
+
+function getCompletedDaysCount(checklistItemsList) {
+  let count = 0;
+  for (let d = 1; d <= TOTAL_DAYS; d++) {
+    if (isDayCompleted(d, checklistItemsList)) count++;
+  }
+  return count;
+}
+
+function computeDayCompletionPercent(dayNumber, checklistItemsList) {
+  const todayLocal = new Date();
+  const currentDay = getDayFromDate(todayLocal);
+  if (dayNumber > currentDay) return null;
+  try {
+    const raw = localStorage.getItem("abtalks_checklist_day_" + dayNumber);
+    if (raw) {
+      const state = JSON.parse(raw);
+      const items = checklistItemsList || DEFAULT_CHECKLIST_ITEMS;
+      const total = items.length || 1;
+      const done = items.filter(item => state[item.key]).length;
+      return Math.round((done / total) * 100);
+    }
+  } catch (e) {}
+  return 0;
+}
+
+// ─── CHALLENGE DAY REACT COMPONENT ────────────────────
+function ChallengeDay({ userSession, onChallengeUpdate }) {
+  const start = parseDate(CHALLENGE_START_DATE);
+  const end = addDays(start, TOTAL_DAYS - 1);
+  const todayLocal = new Date();
+  const currentDay = getDayFromDate(todayLocal);
+
+  const [viewedDay, setViewedDay] = useState(currentDay);
+  const [calendarExpanded, setCalendarExpanded] = useState(false);
+  const [monthIndex, setMonthIndex] = useState(() => {
+    const date = addDays(start, currentDay - 1);
+    const months = getChallengeMonths();
+    const idx = months.findIndex(m => m.year === date.getFullYear() && m.month === date.getMonth());
+    return idx === -1 ? 0 : idx;
+  });
+
+  const [dailyProgressShowFuture, setDailyProgressShowFuture] = useState(false);
+  const [dayHistoryExpanded, setDayHistoryExpanded] = useState(false);
+  const [expandedHistoryDays, setExpandedHistoryDays] = useState(new Set());
+  const [proofViewExpanded, setProofViewExpanded] = useState(false);
+
+  // Load checklist items definitions
+  const [checklistItems, setChecklistItems] = useState(() => {
+    try {
+      const raw = localStorage.getItem("abtalks_checklist_items");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch (e) {}
+    return DEFAULT_CHECKLIST_ITEMS.map(i => ({ ...i }));
+  });
+  const [isEditingChecklist, setIsEditingChecklist] = useState(false);
+
+  // Active day checklist / proof states
+  const [checklistState, setChecklistState] = useState({});
+  const [githubUrl, setGithubUrl] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [submittedSuccess, setSubmittedSuccess] = useState(false);
+  const [triggerUpdate, setTriggerUpdate] = useState(0);
+
+  // Load values whenever viewedDay changes
+  useEffect(() => {
+    try {
+      const rawCheck = localStorage.getItem("abtalks_checklist_day_" + viewedDay);
+      setChecklistState(rawCheck ? JSON.parse(rawCheck) : {});
+    } catch (e) {
+      setChecklistState({});
+    }
+
+    try {
+      const rawProof = localStorage.getItem("abtalks_proof_day_" + viewedDay);
+      if (rawProof) {
+        const parsed = JSON.parse(rawProof);
+        setGithubUrl(parsed.github || '');
+        setLinkedinUrl(parsed.linkedin || '');
+        setSubmittedSuccess(true);
+      } else {
+        setGithubUrl('');
+        setLinkedinUrl('');
+        setSubmittedSuccess(false);
+      }
+    } catch (e) {
+      setGithubUrl('');
+      setLinkedinUrl('');
+      setSubmittedSuccess(false);
+    }
+  }, [viewedDay, triggerUpdate]);
+
+  // Toggle checklist checkbox
+  const toggleChecklistItem = (key) => {
+    const nextState = { ...checklistState, [key]: !checklistState[key] };
+    setChecklistState(nextState);
+    localStorage.setItem("abtalks_checklist_day_" + viewedDay, JSON.stringify(nextState));
+
+    // Update timing log
+    let timing = { startedAt: null, completedAt: null };
+    try {
+      const raw = localStorage.getItem("abtalks_checklist_timing_day_" + viewedDay);
+      if (raw) timing = JSON.parse(raw);
+    } catch (e) {}
+
+    const now = new Date().toISOString();
+    const anyChecked = checklistItems.some(item => nextState[item.key]);
+    const allChecked = checklistItems.length > 0 && checklistItems.every(item => nextState[item.key]);
+
+    if (anyChecked && !timing.startedAt) timing.startedAt = now;
+    if (!anyChecked) {
+      timing.startedAt = null;
+      timing.completedAt = null;
+    } else if (allChecked && !timing.completedAt) {
+      timing.completedAt = now;
+    } else if (!allChecked) {
+      timing.completedAt = null;
+    }
+    localStorage.setItem("abtalks_checklist_timing_day_" + viewedDay, JSON.stringify(timing));
+    setTriggerUpdate(t => t + 1);
+    onChallengeUpdate && onChallengeUpdate();
+  };
+
+  // Checklist editing callbacks
+  const handleAddChecklistItem = () => {
+    const key = "item_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+    const updated = [...checklistItems, { key, label: "New task item" }];
+    setChecklistItems(updated);
+    localStorage.setItem("abtalks_checklist_items", JSON.stringify(updated));
+    onChallengeUpdate && onChallengeUpdate();
+  };
+  const handleDeleteChecklistItem = (key) => {
+    const updated = checklistItems.filter(i => i.key !== key);
+    setChecklistItems(updated);
+    localStorage.setItem("abtalks_checklist_items", JSON.stringify(updated));
+    onChallengeUpdate && onChallengeUpdate();
+  };
+  const handleEditChecklistItem = (key, label) => {
+    const updated = checklistItems.map(i => i.key === key ? { ...i, label } : i);
+    setChecklistItems(updated);
+    localStorage.setItem("abtalks_checklist_items", JSON.stringify(updated));
+    onChallengeUpdate && onChallengeUpdate();
+  };
+
+  // Proof submit
+  const handleProofSubmit = (e) => {
+    e.preventDefault();
+    if (!githubUrl.trim() || !linkedinUrl.trim()) {
+      alert("Please submit both your GitHub and LinkedIn links.");
+      return;
+    }
+    const proof = {
+      github: githubUrl.trim(),
+      linkedin: linkedinUrl.trim(),
+      submittedAt: new Date().toISOString()
+    };
+    localStorage.setItem("abtalks_proof_day_" + viewedDay, JSON.stringify(proof));
+    setSubmittedSuccess(true);
+    setTriggerUpdate(t => t + 1);
+    onChallengeUpdate && onChallengeUpdate();
+  };
+
+  // Calculated overall stats
+  const streakCount = computeStreak(checklistItems);
+  const completedCount = getCompletedDaysCount(checklistItems);
+  const progressPercent = Math.round((completedCount / TOTAL_DAYS) * 100);
+  const viewedChallenge = getChallengeInfo(viewedDay);
+  const doneChecklistNum = checklistItems.filter(item => checklistState[item.key]).length;
+
+  // Calendar cells builder
+  const challengeMonths = getChallengeMonths();
+  const currentMonthObj = challengeMonths[monthIndex] || challengeMonths[0];
+  const daysInCurrentMonth = daysInMonth(currentMonthObj.year, currentMonthObj.month);
+  const startWeekday = new Date(currentMonthObj.year, currentMonthObj.month, 1).getDay();
+
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInCurrentMonth; d++) cells.push(new Date(currentMonthObj.year, currentMonthObj.month, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  // Time logging helper
+  const getDayTimeInfo = (d) => {
+    try {
+      const raw = localStorage.getItem("abtalks_checklist_timing_day_" + d);
+      if (raw) {
+        const timing = JSON.parse(raw);
+        if (!timing.startedAt) return { label: "Not started", cls: "" };
+        const startT = new Date(timing.startedAt);
+        if (timing.completedAt) {
+          const took = new Date(timing.completedAt) - startT;
+          const mins = Math.round(took / 60000);
+          return { label: `⏱ ${mins < 1 ? "<1m" : mins + "m"}`, cls: "done" };
+        }
+        const elapsed = Date.now() - startT;
+        const mins = Math.round(elapsed / 60000);
+        return { label: `⏱ ${mins < 1 ? "<1m" : mins + "m"} so far`, cls: "progress" };
+      }
+    } catch (e) {}
+    return { label: "Not started", cls: "" };
+  };
+
+  const toggleHistoryDay = (d) => {
+    const nextSet = new Set(expandedHistoryDays);
+    if (nextSet.has(d)) nextSet.delete(d);
+    else nextSet.add(d);
+    setExpandedHistoryDays(nextSet);
+  };
+
+  return (
+    <div>
+      {/* Top Navigation Row */}
+      <div style={{ marginBottom: 20 }}>
+        <div className="db-pill"><Target size={11} />Day Challenge View</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          <div className="day-nav" style={{ margin: 0 }}>
+            <button className="day-nav-btn" disabled={viewedDay <= 1} onClick={() => setViewedDay(viewedDay - 1)}>‹</button>
+            <button className="ch-badge" style={{ margin: 0 }} onClick={() => setCalendarExpanded(e => !e)}>
+              DAY <strong>{viewedDay}</strong> / {TOTAL_DAYS} <span className="db-hint" style={{ fontSize: 9, opacity: 0.7 }}>· toggle calendar</span>
+            </button>
+            <button className="day-nav-btn" disabled={viewedDay >= currentDay} onClick={() => setViewedDay(viewedDay + 1)}>›</button>
+          </div>
+          
+          <div className="dh-pct full" style={{ fontSize: 11, fontWeight: 700 }}>
+            {isDayCompleted(viewedDay, checklistItems) ? "✓ COMPLETED" : viewedDay === currentDay ? "● IN PROGRESS" : "○ INCOMPLETE"}
+          </div>
+        </div>
+      </div>
+
+      {/* Viewing Banner */}
+      {viewedDay !== currentDay && (
+        <div className="viewing-banner">
+          <span>Viewing Day {viewedDay} (Past Day Challenge)</span>
+          <button className="viewing-banner-btn" onClick={() => setViewedDay(currentDay)}>Back to Today</button>
+        </div>
+      )}
+
+      {/* Overall Progress Tracker */}
+      <div className="db-card mb4">
+        <div className="progress-info" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--t3)', fontWeight: 700, marginBottom: 8 }}>
+          <span>CHALLENGE PROGRESS</span>
+          <span>{completedCount} / {TOTAL_DAYS} Days Completed</span>
+        </div>
+        <div className="db-pb-wrap" style={{ height: 8 }}>
+          <div className="db-pb pb-red" style={{ '--pw': `${progressPercent}%` }} />
+        </div>
+      </div>
+
+      {/* Streak Calendar Card (Collapsible) */}
+      <div className="db-card mb4">
+        <div className="calendar-head">
+          <div>
+            <div className="calendar-title">Streak Calendar</div>
+            <div className="calendar-subtitle">
+              {startDate} → {formatDate(end)} · Day {currentDay} of {TOTAL_DAYS}
+            </div>
+          </div>
+          <div className="calendar-head-right" style={{ display: 'flex', gap: 8 }}>
+            <div className="calendar-streak">🔥 {streakCount} DAYS</div>
+            <button type="button" className={`calendar-toggle-btn${calendarExpanded ? ' open' : ''}`} onClick={() => setCalendarExpanded(e => !e)}>
+              <span>{calendarExpanded ? "Hide" : "Show"} Calendar</span>
+              <span className="chev">▾</span>
+            </button>
+          </div>
+        </div>
+
+        {calendarExpanded && (
+          <div className="calendar-body">
+            <div className="month-nav">
+              <button type="button" className="month-nav-btn" disabled={monthIndex === 0} onClick={() => setMonthIndex(m => m - 1)}>‹</button>
+              <div className="month-nav-label">
+                {new Date(currentMonthObj.year, currentMonthObj.month, 1).toLocaleString("en-US", { month: "long", year: "numeric" })}
+              </div>
+              <button type="button" className="month-nav-btn" disabled={monthIndex === challengeMonths.length - 1} onClick={() => setMonthIndex(m => m + 1)}>›</button>
+            </div>
+
+            <div className="calendar-grid">
+              {WEEKDAY_LABELS.map(lbl => (
+                <div key={lbl} className="calendar-weekday">{lbl}</div>
+              ))}
+              {cells.map((cell, idx) => {
+                if (!cell) return <div key={`empty-${idx}`} className="calendar-day empty" />;
+                const inRange = cell >= start && cell <= end;
+                const dNum = getDayFromDate(cell);
+                const isDone = isDayCompleted(dNum, checklistItems);
+                
+                let classes = "calendar-day";
+                if (!inRange) classes += " outside";
+                else {
+                  if (isDone) classes += " completed";
+                  if (dNum === currentDay) classes += " current";
+                  if (dNum > currentDay) classes += " future";
+                  if (dNum <= currentDay) classes += " editable";
+                }
+
+                return (
+                  <button key={`cell-${idx}`} type="button" className={classes}
+                    disabled={!inRange || dNum > currentDay}
+                    onClick={() => setViewedDay(dNum)}>
+                    {cell.getDate()}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="calendar-legend">
+              <div className="legend-item"><div className="legend-dot done" /><span>Completed</span></div>
+              <div className="legend-item"><div className="legend-dot today" /><span>Today</span></div>
+              <div className="legend-item"><div className="legend-dot" /><span>Upcoming</span></div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Stats row */}
+      <div className="db-stats" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 16 }}>
+        <div className="db-stat" style={{ padding: '12px 14px' }}>
+          <div className="db-stat-val">{viewedDay}</div>
+          <div className="db-stat-lbl">Viewing Day</div>
+        </div>
+        <div className="db-stat" style={{ padding: '12px 14px' }}>
+          <div className="db-stat-val">{streakCount}🔥</div>
+          <div className="db-stat-lbl">Day Streak</div>
+        </div>
+        <div className="db-stat" style={{ padding: '12px 14px' }}>
+          <div className="db-stat-val">{progressPercent}%</div>
+          <div className="db-stat-lbl">Completed</div>
+        </div>
+      </div>
+
+      {/* Today's task detail description card */}
+      <div className="db-card mb4">
+        <div className="card-label" style={{ fontSize: 10, letterSpacing: 1.2, color: 'var(--red-l)', marginBottom: 6 }}>// CHALLENGE INSTRUCTIONS</div>
+        <h2 className="db-h1" style={{ fontSize: 20, marginBottom: 8 }}>{viewedChallenge.title}</h2>
+        <p className="db-sub" style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.6 }}>{viewedChallenge.description}</p>
+      </div>
+
+      {/* Checklist Card */}
+      <div className="db-card mb4">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div>
+            <div className="card-label" style={{ fontSize: 10, letterSpacing: 1.2, color: 'var(--red-l)', marginBottom: 4 }}>// WHAT TO BUILD</div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>Requirements Checklist</h3>
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <span className="checklist-progress">{doneChecklistNum} / {checklistItems.length} done</span>
+            <button className={`edit-toggle-btn${isEditingChecklist ? ' active' : ''}`} onClick={() => setIsEditingChecklist(!isEditingChecklist)}>
+              {isEditingChecklist ? "Done" : "Edit"}
+            </button>
+          </div>
+        </div>
+
+        <div className="requirements" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          {checklistItems.map(item => {
+            const isChecked = checklistState[item.key] || false;
+            return (
+              <div key={item.key}>
+                {isEditingChecklist ? (
+                  <div className="requirement editing" style={{ display: 'flex', gap: 10, padding: 8 }}>
+                    <input className="item-edit-input" value={item.label} onChange={(e) => handleEditChecklistItem(item.key, e.target.value)} />
+                    <button type="button" className="item-delete-btn" onClick={() => handleDeleteChecklistItem(item.key)}>✕</button>
+                  </div>
+                ) : (
+                  <button type="button" className={`requirement${isChecked ? ' checked' : ''}`} style={{ width: '100%' }} onClick={() => toggleChecklistItem(item.key)}>
+                    <div className="check">✓</div>
+                    <span className="item-text">{item.label}</span>
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          {isEditingChecklist && (
+            <button className="add-item-btn" onClick={handleAddChecklistItem}>+ Add checklist task item</button>
+          )}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--t3)' }}>
+          {isEditingChecklist ? "Rename tasks, remove ones you don't need, or add new ones." : "Mark items done as you build. A day counts toward your streak automatically when all items are checked."}
+        </div>
+      </div>
+
+      {/* Proof of Work Card */}
+      <div className="db-card mb4">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div>
+            <div className="card-label" style={{ fontSize: 10, letterSpacing: 1.2, color: 'var(--red-l)', marginBottom: 4 }}>// PROOF OF WORK</div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>Submit Your Proof</h3>
+          </div>
+          <button className={`calendar-toggle-btn${proofViewExpanded ? ' open' : ''}`} onClick={() => setProofViewExpanded(!proofViewExpanded)}>
+            <span>Submitted proof</span>
+            <span className="chev">▾</span>
+          </button>
+        </div>
+
+        <p className="db-sub" style={{ fontSize: 12, color: 'var(--t3)', marginBottom: 14 }}>
+          Submit links proving you completed the day's challenge. Both GitHub and LinkedIn proof links are required.
+        </p>
+
+        <form onSubmit={handleProofSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="field">
+            <label htmlFor="github"><span className="icon">GH</span> GitHub Repository / Commit URL</label>
+            <input id="github" type="url" className="db-inp" placeholder="https://github.com/.../commit/..." value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} required />
+          </div>
+
+          <div className="field">
+            <label htmlFor="linkedin"><span class="icon">in</span> LinkedIn Post URL</label>
+            <input id="linkedin" type="url" className="db-inp" placeholder="https://linkedin.com/posts/..." value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} required />
+          </div>
+
+          <button type="submit" className="db-btn btn-red" style={{ alignSelf: 'flex-start' }}>
+            {submittedSuccess ? "✓ Proof Submitted" : `Submit Day ${viewedDay} Challenge →`}
+          </button>
+        </form>
+
+        {submittedSuccess && (
+          <div className="success">
+            <div className="success-title">✓ CHALLENGE WORK RECEIVED</div>
+            <div className="success-text">Your proof links have been saved. Your streak is protected.</div>
+          </div>
+        )}
+
+        {proofViewExpanded && (
+          <div className="dh-links" style={{ marginTop: 14, borderTop: '1px solid var(--bdr)', paddingTop: 12 }}>
+            <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 6 }}>Submitted Links:</div>
+            {githubUrl ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="dh-link" style={{ alignSelf: 'flex-start' }}>GitHub Commit Link ↗</a>
+                <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="dh-link" style={{ alignSelf: 'flex-start' }}>LinkedIn Post Link ↗</a>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--t4)' }}>No proof submitted for this day yet.</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Daily Progress & Day History Dropdowns */}
+      <div className="g2">
+        {/* Daily progress bar chart */}
+        <div className="daily-progress-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+            <div>
+              <div className="calendar-title">Daily Progress</div>
+              <div className="daily-progress-subtitle">CHECKLIST COMPLETION OVER TIME</div>
+            </div>
+            <button className="calendar-toggle-btn" onClick={() => setDailyProgressShowFuture(!dailyProgressShowFuture)}>
+              <span>{dailyProgressShowFuture ? "Hide" : "Show"} upcoming</span>
+            </button>
+          </div>
+
+          <div className="daily-progress-chart">
+            {Array.from({ length: 14 }).map((_, idx) => {
+              const dNum = currentDay - 10 + idx;
+              if (dNum < 1 || (!dailyProgressShowFuture && dNum > currentDay)) return null;
+              
+              const isFuture = dNum > currentDay;
+              const pct = isFuture ? null : computeDayCompletionPercent(dNum, checklistItems);
+
+              return (
+                <div key={idx} className={`dp-col${dNum === currentDay ? ' dp-today' : ''}${isFuture ? ' dp-future' : pct === 0 ? ' dp-empty' : ''}`}
+                  onClick={() => !isFuture && setViewedDay(dNum)}>
+                  <div className="dp-bar-track">
+                    {!isFuture && (
+                      <div className="dp-bar" style={{ height: `${pct || 2}%` }} />
+                    )}
+                  </div>
+                  <div className="dp-label">{dNum}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Day-by-Day history log */}
+        <div className="daily-progress-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div className="calendar-title">Day-by-Day History</div>
+              <div className="daily-progress-subtitle">COMPLETED REQUIREMENTS & LINKS</div>
+            </div>
+            <button className="calendar-toggle-btn" onClick={() => setDayHistoryExpanded(!dayHistoryExpanded)}>
+              <span>{dayHistoryExpanded ? "Hide" : "Show"} history</span>
+              <span className="chev">▾</span>
+            </button>
+          </div>
+
+          {dayHistoryExpanded && (
+            <div className="day-history-list">
+              {Array.from({ length: currentDay }).map((_, idx) => {
+                const d = currentDay - idx;
+                const isExpanded = expandedHistoryDays.has(d);
+                const pct = computeDayCompletionPercent(d, checklistItems);
+                const proof = localStorage.getItem("abtalks_proof_day_" + d) ? JSON.parse(localStorage.getItem("abtalks_proof_day_" + d)) : null;
+                const timeInfo = getDayTimeInfo(d);
+                const dateForDay = addDays(start, d - 1);
+
+                return (
+                  <div key={d} className={`dh-row${isExpanded ? ' expanded' : ''}`}>
+                    <button type="button" className="dh-row-header" onClick={() => toggleHistoryDay(d)}>
+                      <div className="dh-row-left">
+                        <span className="dh-day">Day {d}</span>
+                        <span className="dh-date">{dateForDay.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                        <span className={`dh-time ${timeInfo.cls}`}>{timeInfo.label}</span>
+                      </div>
+                      <div className="dh-row-right">
+                        <span className={`dh-pct ${pct >= 100 ? 'full' : pct > 0 ? 'partial' : 'none'}`}>{pct}%</span>
+                        <span className="dh-chev">▾</span>
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="dh-details">
+                        <div className="dh-items">
+                          {checklistItems.map(item => {
+                            const dayCheckState = localStorage.getItem("abtalks_checklist_day_" + d) ? JSON.parse(localStorage.getItem("abtalks_checklist_day_" + d)) : {};
+                            const isChecked = dayCheckState[item.key] || false;
+                            return (
+                              <span key={item.key} className={`dh-item${isChecked ? ' done' : ''}`}>
+                                {isChecked ? "✓ " : ""}{item.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        
+                        {proof && (
+                          <div className="dh-links">
+                            {proof.github && <a href={proof.github} target="_blank" rel="noopener noreferrer" className="dh-link">GitHub Commit ↗</a>}
+                            {proof.linkedin && <a href={proof.linkedin} target="_blank" rel="noopener noreferrer" className="dh-link">LinkedIn Post ↗</a>}
+                          </div>
+                        )}
+
+                        <button className="db-btn btn-ghost" style={{ padding: '4px 10px', fontSize: 11, marginTop: 8 }} onClick={() => setViewedDay(d)}>
+                          Open Day {d}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Coming up next card at the bottom */}
+      <div className="next-day mt4" style={{ cursor: viewedDay < TOTAL_DAYS ? 'pointer' : 'default' }}>
+        <div className="next-day-row">
+          <div>
+            <div className="next-label">COMING UP NEXT</div>
+            <div className="next-title">
+              {viewedDay < TOTAL_DAYS ? getChallengeInfo(viewedDay + 1).title : "Challenge Day 60 reached!"}
+            </div>
+          </div>
+          <button className="next-arrow" onClick={() => viewedDay < TOTAL_DAYS && setViewedDay(viewedDay + 1)}>
+            →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard({ userSession, onLogOut, theme, onToggleTheme }) {
   const [page,      setPage]      = useState('home');
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen,setMobileOpen]= useState(false);
   const [tasks,     setTasks]     = useState(INIT_TASKS);
   const [logs,      setLogs]      = useState(INIT_LOGS);
+  const [challengeTrigger, setChallengeTrigger] = useState(0);
 
-  // Demo student data
-  const streak       = 7;
+  // Dynamic calculated student data to keep tabs synchronized
+  const todayLocal = new Date();
+  const currentDay = getDayFromDate(todayLocal);
+
+  // Load checklist definitions
+  const [checklistItemsDef] = useState(() => {
+    try {
+      const raw = localStorage.getItem("abtalks_checklist_items");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      }
+    } catch(e){}
+    return DEFAULT_CHECKLIST_ITEMS.map(i => ({ ...i }));
+  });
+
+  const streak       = computeStreak(checklistItemsDef);
   const bestStreak   = 12;
-  const dayNum       = 7;
+  const dayNum       = currentDay;
   const totalDays    = 60;
+  
+  // Rank calculations
   const rank         = 48;
   const totalStudents= 312;
 
@@ -1094,6 +1792,7 @@ export default function Dashboard({ userSession, onLogOut, theme, onToggleTheme 
     : 'SD';
 
   const navigate = id => { setPage(id); setMobileOpen(false); };
+
 
   // Build nav buttons wired to navigate
   const wiredNav = NAV.map(item => ({
@@ -1136,6 +1835,12 @@ export default function Dashboard({ userSession, onLogOut, theme, onToggleTheme 
               tasks={tasks} setTasks={setTasks}
               onNavigate={navigate}
               userSession={userSession}
+            />
+          )}
+          {page === 'challenge' && (
+            <ChallengeDay 
+              userSession={userSession} 
+              onChallengeUpdate={() => setChallengeTrigger(t => t + 1)} 
             />
           )}
           {page === 'today'    && <TodayTask tasks={tasks} setTasks={setTasks} />}
